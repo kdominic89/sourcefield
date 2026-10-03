@@ -1,0 +1,10 @@
+{
+  "name": "SOURCEFIELD",
+  "short_name": "SOURCEFIELD",
+  "description": "An interactive topology of systems, capabilities and public packages.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#050812",
+  "theme_color": "#050812",
+  "icons": []
+}

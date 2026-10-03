@@ -1,0 +1,45 @@
+schema_version = 1
+
+[profile]
+variant = "personal"
+username = "sample-user"
+display_name = "Sample Developer"
+organization = "sample-labs"
+headline = ".NET, developer tools, and open source."
+tagline = "Sample Developer \u00b7 .NET, developer tools, and open source."
+pages_url = "https://sample-user.github.io/sample-user/"
+source_url = "https://github.com/sample-user/sample-user"
+
+[collection]
+github_user = "sample-user"
+github_organizations = []
+discover_public_repositories = true
+visualize_discovered_repositories = false
+include_forks = false
+include_archived = false
+collect_contributions = true
+collect_private_repository_count = false
+repository_limit = 100
+history_limit = 24
+
+[render]
+width = 1800
+height = 1795
+motion_seconds = 32
+detail_level = "abstract"
+show_activity_orbit = true
+show_state_hash = true
+show_interests_in_readme = true
+show_technology_labels = true
+
+[[imports]]
+id = "example-labs"
+[imports.source]
+kind = "local"
+path = "organization.toml"
+
+[[imports]]
+id = "second-labs"
+[imports.source]
+kind = "local"
+path = "second-organization.toml"

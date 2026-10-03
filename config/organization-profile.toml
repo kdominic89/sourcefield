@@ -1,0 +1,350 @@
+schema_version = 1
+
+[collection]
+collect_contributions = false
+collect_private_repository_count = false
+discover_public_repositories = true
+github_organizations = ["sample-labs"]
+history_limit = 24
+include_archived = false
+include_forks = false
+nuget_owner = "sample-labs"
+repository_limit = 100
+visualize_discovered_repositories = false
+
+[[domains]]
+anchor = [
+    900.0,
+    465.0,
+]
+id = "sample-labs"
+kind = "organization"
+label = "sample-labs"
+owner = "sample-labs"
+summary = "Public and private projects."
+
+[presentation]
+main_stack = [
+    "C#",
+    ".NET",
+    "EF Core",
+]
+supporting_stack = [
+    "MySQL",
+    "MariaDB",
+    "PostgreSQL",
+    "SQLite",
+]
+
+[profile]
+display_name = "sample-labs"
+headline = "Libraries and tools for .NET and relational databases."
+organization = "sample-labs"
+pages_url = "https://sample-labs.github.io/.github/"
+source_url = "https://github.com/sample-labs/.github"
+tagline = "Libraries and tools for .NET and relational databases."
+username = "sample-labs"
+variant = "organization"
+
+[profile.maintainer]
+role = "Administrator & Core Maintainer"
+url = "https://github.com/example-maintainer"
+username = "example-maintainer"
+
+[[projects]]
+anchor = [
+    470.0,
+    345.0,
+]
+display_stack = [
+    "C#",
+    ".NET",
+    "EF Core",
+]
+domain = "sample-labs"
+id = "mysql"
+implemented_with = [
+    "csharp",
+    "dotnet",
+]
+label = "Sample.EntityFrameworkCore.MySql"
+label_prefix = "Sample.EntityFrameworkCore."
+radius = 48.0
+repository = "sample-labs/Sample.EntityFrameworkCore.MySql"
+show_in_readme = true
+status = "active"
+summary = "Provider, spatial support & caching"
+surface_label = "MySql"
+visibility = "public"
+visual = "provider"
+weight = 0.8
+
+[[projects]]
+anchor = [
+    1330.0,
+    345.0,
+]
+display_stack = [
+    "C#",
+    ".NET",
+    "EF Core",
+]
+domain = "sample-labs"
+id = "safe-migrations"
+implemented_with = [
+    "csharp",
+    "dotnet",
+]
+label = "Sample.EntityFrameworkCore.SchemaTools"
+label_prefix = "Sample.EntityFrameworkCore."
+radius = 51.0
+repository = "sample-labs/Sample.EntityFrameworkCore.SchemaTools"
+show_in_readme = true
+status = "active"
+summary = "MySQL / MariaDB / PostgreSQL / SQLite"
+surface_label = "SchemaTools"
+visibility = "public"
+visual = "migrations"
+weight = 0.8
+
+[[projects]]
+anchor = [
+    520.0,
+    685.0,
+]
+display_stack = [
+    "C#",
+    ".NET",
+    "JavaScript",
+]
+domain = "sample-labs"
+id = "relational-lab"
+implemented_with = [
+    "csharp",
+    "dotnet",
+    "javascript",
+]
+label = "DatabaseLab"
+radius = 42.0
+show_in_readme = true
+status = "active"
+summary = "A test lab for relational databases"
+surface_label = "DatabaseLab"
+visibility = "private-abstract"
+visual = "lab"
+weight = 0.8
+
+[[projects]]
+anchor = [
+    1280.0,
+    685.0,
+]
+display_stack = [
+    "C#",
+    ".NET",
+    "EF Core",
+]
+domain = "sample-labs"
+id = "nested-set"
+implemented_with = [
+    "csharp",
+    "dotnet",
+]
+label = "Sample.EntityFrameworkCore.TreeModel"
+label_prefix = "Sample.EntityFrameworkCore."
+radius = 48.0
+repository = "sample-labs/Sample.EntityFrameworkCore.TreeModel"
+show_in_readme = true
+status = "active"
+summary = "Ordered hierarchies for EF Core"
+surface_label = "TreeModel"
+visibility = "public"
+visual = "hierarchy"
+weight = 0.8
+
+[[publications]]
+anchor = [
+    76.0,
+    962.0,
+]
+discovery_prefixes = [
+    "Sample.EntityFrameworkCore.MySql",
+    "Sample.Caching.MySql",
+]
+domain = "sample-labs"
+id = "mysql"
+label = "Sample.EntityFrameworkCore.MySql"
+label_prefix = "Sample.EntityFrameworkCore."
+registry = "nuget"
+show_in_readme = true
+summary = "Published NuGet packages."
+surface_label = "Sample.EntityFrameworkCore.MySql"
+technologies = [
+    "csharp",
+    "dotnet",
+]
+
+[[publications.packages]]
+anchor = [
+    92.0,
+    1012.0,
+]
+family = "provider"
+id = "Sample.EntityFrameworkCore.MySql"
+summary = "EF Core provider for MySQL and MariaDB"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.MySql/"
+
+[[publications.packages]]
+anchor = [
+    92.0,
+    1102.0,
+]
+family = "spatial"
+id = "Sample.EntityFrameworkCore.MySql.NetTopologySuite"
+summary = "Spatial support"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.MySql.NetTopologySuite/"
+
+[[publications.packages]]
+anchor = [
+    92.0,
+    1192.0,
+]
+family = "cache"
+id = "Sample.Caching.MySql"
+summary = "Distributed caching with MySQL"
+url = "https://www.nuget.org/packages/Sample.Caching.MySql/"
+
+[[publications]]
+anchor = [
+    650.0,
+    962.0,
+]
+core_label = "Core"
+discovery_prefixes = ["Sample.EntityFrameworkCore.SchemaTools"]
+domain = "sample-labs"
+id = "safe-migrations"
+label = "Sample.EntityFrameworkCore.SchemaTools"
+label_prefix = "Sample.EntityFrameworkCore.SchemaTools."
+registry = "nuget"
+show_in_readme = true
+summary = "Published NuGet packages."
+surface_label = "Sample.EntityFrameworkCore.SchemaTools"
+technologies = [
+    "csharp",
+    "dotnet",
+]
+
+[[publications.packages]]
+anchor = [
+    666.0,
+    1012.0,
+]
+family = "migrations"
+id = "Sample.EntityFrameworkCore.SchemaTools"
+summary = "Core package"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools/"
+
+[[publications.packages]]
+anchor = [
+    666.0,
+    1102.0,
+]
+family = "migrations"
+id = "Sample.EntityFrameworkCore.SchemaTools.MySql"
+summary = "MySQL and MariaDB adapter"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.MySql/"
+
+[[publications.packages]]
+anchor = [
+    666.0,
+    1192.0,
+]
+family = "migrations"
+id = "Sample.EntityFrameworkCore.SchemaTools.PostgreSql"
+summary = "PostgreSQL adapter"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.PostgreSql/"
+
+[[publications.packages]]
+anchor = [
+    666.0,
+    1282.0,
+]
+family = "migrations"
+id = "Sample.EntityFrameworkCore.SchemaTools.Sqlite"
+summary = "SQLite adapter"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.Sqlite/"
+
+[[publications]]
+anchor = [
+    1224.0,
+    962.0,
+]
+discovery_prefixes = [
+    "Sample.TreeModel",
+    "Sample.EntityFrameworkCore.TreeModel",
+]
+domain = "sample-labs"
+id = "nested-set"
+label = "Sample.EntityFrameworkCore.TreeModel"
+label_prefix = "Sample."
+registry = "nuget"
+show_in_readme = true
+summary = "Published NuGet packages."
+surface_label = "Sample.EntityFrameworkCore.TreeModel"
+technologies = [
+    "csharp",
+    "dotnet",
+]
+
+[publications.label_overrides]
+"Sample.TreeModel" = "Sample.TreeModel"
+
+[[publications.packages]]
+anchor = [
+    1240.0,
+    1012.0,
+]
+family = "hierarchy"
+id = "Sample.TreeModel"
+summary = "EF-independent node and bounds contracts"
+url = "https://www.nuget.org/packages/Sample.TreeModel/"
+
+[[publications.packages]]
+anchor = [
+    1240.0,
+    1102.0,
+]
+family = "hierarchy"
+id = "Sample.EntityFrameworkCore.TreeModel"
+summary = "Ordered hierarchies, queries, and mutations"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.TreeModel/"
+
+[render]
+detail_level = "abstract"
+height = 1462
+motion_seconds = 32
+show_activity_orbit = true
+show_interests_in_readme = false
+show_state_hash = false
+show_technology_labels = true
+width = 1800
+
+[[technologies]]
+affinities = ["sample-labs"]
+category = "language"
+id = "csharp"
+label = "C#"
+show_in_readme = true
+
+[[technologies]]
+affinities = ["sample-labs"]
+category = "runtime"
+id = "dotnet"
+label = ".NET"
+show_in_readme = true
+
+[[technologies]]
+affinities = ["sample-labs"]
+category = "language"
+id = "javascript"
+label = "JavaScript"

@@ -1,0 +1,52 @@
+schema_version = 1
+id = "example-labs"
+owner = "example-labs"
+label = "Example Labs"
+summary = "Open source database tools."
+
+[[technologies]]
+id = "rust"
+label = "Rust"
+category = "language"
+
+[[projects]]
+id = "database"
+label = "Example Database"
+surface_label = "Database"
+visibility = "public"
+status = "open-source"
+visual = "database"
+summary = "A synthetic database project."
+repository = "example-labs/database"
+implemented_with = ["rust"]
+show_in_readme = true
+
+[maintainer]
+username = "example-admin"
+role = "Administrator and core maintainer"
+url = "https://github.com/example-admin"
+
+[[publications]]
+id = "database"
+label = "Example.Database"
+surface_label = "Database packages"
+registry = "nuget"
+owner = "example-labs"
+summary = "Synthetic registry packages."
+discovery_prefixes = ["Example.Database"]
+label_prefix = "Example.Database."
+core_label = "Core"
+technologies = ["rust"]
+show_in_readme = true
+
+[[publications.packages]]
+id = "Example.Database"
+family = "database"
+url = "https://www.nuget.org/packages/Example.Database/"
+summary = "Core database package."
+
+[[publications.packages]]
+id = "Example.Database.Adapter"
+family = "database"
+url = "https://www.nuget.org/packages/Example.Database.Adapter/"
+summary = "Database adapter package."

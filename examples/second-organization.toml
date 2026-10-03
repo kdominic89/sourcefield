@@ -1,0 +1,52 @@
+schema_version = 1
+id = "second-labs"
+owner = "second-labs"
+label = "Second Labs"
+summary = "Open source database tools."
+
+[[technologies]]
+id = "rust"
+label = "Rust"
+category = "language"
+
+[[projects]]
+id = "database"
+label = "Second Database"
+surface_label = "Database"
+visibility = "public"
+status = "open-source"
+visual = "database"
+summary = "A synthetic database project."
+repository = "second-labs/database"
+implemented_with = ["rust"]
+show_in_readme = true
+
+[maintainer]
+username = "second-admin"
+role = "Administrator and core maintainer"
+url = "https://github.com/second-admin"
+
+[[publications]]
+id = "database"
+label = "Second.Database"
+surface_label = "Database packages"
+registry = "nuget"
+owner = "second-labs"
+summary = "Synthetic registry packages."
+discovery_prefixes = ["Second.Database"]
+label_prefix = "Second.Database."
+core_label = "Core"
+technologies = ["rust"]
+show_in_readme = true
+
+[[publications.packages]]
+id = "Second.Database"
+family = "database"
+url = "https://www.nuget.org/packages/Second.Database/"
+summary = "Core database package."
+
+[[publications.packages]]
+id = "Second.Database.Adapter"
+family = "database"
+url = "https://www.nuget.org/packages/Second.Database.Adapter/"
+summary = "Database adapter package."

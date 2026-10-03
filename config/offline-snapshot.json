@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "mode": "preview",
+  "fetched_at": "2026-09-03T00:00:00Z",
+  "user": {
+    "login": "sample-user",
+    "display_name": "Sample Developer",
+    "profile_url": "https://github.com/sample-user",
+    "public_repositories": 10,
+    "followers": 6
+  },
+  "organizations": [
+    {
+      "login": "sample-labs",
+      "display_name": "Sample Labs",
+      "profile_url": "https://github.com/sample-labs",
+      "public_repositories": 2,
+      "followers": 0
+    }
+  ],
+  "repositories": [
+    {
+      "owner": "sample-labs",
+      "name": "Sample.EntityFrameworkCore.MySql",
+      "full_name": "sample-labs/Sample.EntityFrameworkCore.MySql",
+      "url": "https://github.com/sample-labs/Sample.EntityFrameworkCore.MySql",
+      "description": "Entity Framework Core provider and related data infrastructure for MySQL and MariaDB.",
+      "primary_language": "C#",
+      "topics": [
+        "entity-framework-core",
+        "mysql",
+        "mariadb",
+        "dotnet"
+      ],
+      "stars": 0,
+      "forks": 0,
+      "archived": false,
+      "fork": false,
+      "pushed_at": null
+    },
+    {
+      "owner": "sample-labs",
+      "name": "Sample.EntityFrameworkCore.SchemaTools",
+      "full_name": "sample-labs/Sample.EntityFrameworkCore.SchemaTools",
+      "url": "https://github.com/sample-labs/Sample.EntityFrameworkCore.SchemaTools",
+      "description": "Convergent and deterministic migration safety extensions for Entity Framework Core.",
+      "primary_language": "C#",
+      "topics": [
+        "entity-framework-core",
+        "migrations",
+        "mysql",
+        "postgresql"
+      ],
+      "stars": 0,
+      "forks": 0,
+      "archived": false,
+      "fork": false,
+      "pushed_at": null
+    }
+  ],
+  "contributions": null,
+  "private_repository_count": null,
+  "packages": [
+    {
+      "id": "Sample.EntityFrameworkCore.MySql",
+      "version": "10.4.4",
+      "owner": "sample-labs",
+      "total_downloads": 3668,
+      "url": "https://www.nuget.org/packages/Sample.EntityFrameworkCore.MySql/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.EntityFrameworkCore.MySql.NetTopologySuite",
+      "version": "10.4.4",
+      "owner": "sample-labs",
+      "total_downloads": 2330,
+      "url": "https://www.nuget.org/packages/Sample.EntityFrameworkCore.MySql.NetTopologySuite/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.EntityFrameworkCore.SchemaTools",
+      "version": "10.4.5",
+      "owner": "sample-labs",
+      "total_downloads": 2364,
+      "url": "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.EntityFrameworkCore.SchemaTools.PostgreSql",
+      "version": "10.4.5",
+      "owner": "sample-labs",
+      "total_downloads": 1680,
+      "url": "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.PostgreSql/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.EntityFrameworkCore.SchemaTools.MySql",
+      "version": "10.4.5",
+      "owner": "sample-labs",
+      "total_downloads": 1997,
+      "url": "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.MySql/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.Caching.MySql",
+      "version": "10.4.4",
+      "owner": "sample-labs",
+      "total_downloads": 1561,
+      "url": "https://www.nuget.org/packages/Sample.Caching.MySql/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.EntityFrameworkCore.SchemaTools.Sqlite",
+      "version": "10.4.5",
+      "owner": "sample-labs",
+      "total_downloads": 180,
+      "url": "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.Sqlite/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.EntityFrameworkCore.TreeModel",
+      "version": "10.0.0-rc.1",
+      "owner": "sample-labs",
+      "total_downloads": 0,
+      "url": "https://www.nuget.org/packages/Sample.EntityFrameworkCore.TreeModel/",
+      "updated_at": null
+    },
+    {
+      "id": "Sample.TreeModel",
+      "version": "10.0.0-rc.1",
+      "owner": "sample-labs",
+      "total_downloads": 0,
+      "url": "https://www.nuget.org/packages/Sample.TreeModel/",
+      "updated_at": null
+    }
+  ],
+  "warnings": [
+    "Offline preview: metadata is a historical sample, not current live data.",
+    "Private project names and summaries are manually approved public content; private repository collection is disabled."
+  ],
+  "sources": [
+    {
+      "source": "github:user",
+      "status": "preview"
+    },
+    {
+      "source": "github:org:sample-labs",
+      "status": "preview"
+    },
+    {
+      "source": "github:repositories",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.entityframeworkcore.mysql",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.entityframeworkcore.mysql.nettopologysuite",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.entityframeworkcore.schematools",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.entityframeworkcore.schematools.postgresql",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.entityframeworkcore.schematools.mysql",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.caching.mysql",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.entityframeworkcore.schematools.sqlite",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.entityframeworkcore.treemodel",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:sample.treemodel",
+      "status": "preview"
+    },
+    {
+      "source": "nuget:owner:sample-labs",
+      "status": "preview"
+    }
+  ]
+}

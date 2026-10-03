@@ -1,0 +1,3 @@
+# Keep Cargo default incremental and terminal policies; release uses its profile defaults.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+bulk-memory"]

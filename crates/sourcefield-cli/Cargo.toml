@@ -1,0 +1,35 @@
+[package]
+name = "sourcefield-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sourcefield"
+path = "src/main.rs"
+
+[dependencies]
+sourcefield-io.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+sourcefield-core.workspace = true
+sourcefield-collector.workspace = true
+sourcefield-render.workspace = true
+sourcefield-workspace.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+hex.workspace = true
+toml.workspace = true
+
+[build-dependencies]
+sha2.workspace = true
+hex.workspace = true
+
+[lints]
+workspace = true

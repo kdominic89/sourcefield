@@ -1,0 +1,2 @@
+# Source fingerprints must agree across native and browser release platforms.
+* text=auto eol=lf

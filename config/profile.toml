@@ -1,0 +1,603 @@
+schema_version = 1
+
+[profile]
+variant = "personal"
+username = "sample-user"
+display_name = "Sample Developer"
+organization = "sample-labs"
+headline = ".NET, developer tools, and open source."
+tagline = "Sample Developer \u00b7 .NET, developer tools, and open source."
+pages_url = "https://sample-user.github.io/sample-user/"
+source_url = "https://github.com/sample-user/sample-user"
+
+[collection]
+github_user = "sample-user"
+nuget_owner = "sample-labs"
+github_organizations = ["sample-labs"]
+discover_public_repositories = true
+visualize_discovered_repositories = false
+include_forks = false
+include_archived = false
+collect_contributions = true
+collect_private_repository_count = false
+repository_limit = 100
+history_limit = 24
+
+[render]
+width = 1800
+height = 1795
+motion_seconds = 32
+detail_level = "abstract"
+show_activity_orbit = true
+show_state_hash = true
+show_interests_in_readme = true
+show_technology_labels = true
+
+[[domains]]
+id = "personal"
+label = "sample-user"
+owner = "sample-user"
+kind = "account"
+anchor = [451.0, 522.0]
+summary = "Personal projects."
+
+[[domains]]
+id = "sample-labs"
+label = "sample-labs"
+owner = "sample-labs"
+kind = "organization"
+anchor = [1260.0, 519.0]
+summary = "Public and private projects."
+
+[[technologies]]
+id = "rust"
+label = "Rust"
+category = "language"
+affinities = ["personal"]
+show_in_readme = true
+
+[[technologies]]
+id = "go"
+label = "Go"
+category = "language"
+affinities = ["personal"]
+show_in_readme = true
+
+[[technologies]]
+id = "csharp"
+label = "C#"
+category = "language"
+affinities = ["sample-labs"]
+show_in_readme = true
+
+[[technologies]]
+id = "dotnet"
+label = ".NET"
+category = "runtime"
+affinities = ["sample-labs"]
+show_in_readme = true
+
+[[technologies]]
+id = "angular"
+label = "Angular"
+category = "frontend"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = true
+
+[[technologies]]
+id = "typescript"
+label = "TypeScript"
+category = "language"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = false
+
+[[technologies]]
+id = "wasm"
+label = "WebAssembly"
+category = "runtime"
+affinities = ["personal"]
+show_in_readme = true
+
+[[technologies]]
+id = "mcp"
+label = "MCP"
+category = "protocol"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "roslyn"
+label = "Roslyn"
+category = "code-intelligence"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = false
+
+[[technologies]]
+id = "rust-analyzer"
+label = "rust-analyzer"
+category = "code-intelligence"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "python"
+label = "Python"
+category = "language-target"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "php"
+label = "PHP"
+category = "language-target"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "lua"
+label = "Lua"
+category = "language-target"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "html"
+label = "HTML"
+category = "structural-target"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = false
+
+[[technologies]]
+id = "css"
+label = "CSS"
+category = "structural-target"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = false
+
+[[technologies]]
+id = "shell"
+label = "Bash / Zsh"
+category = "structural-target"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "sql-dialects"
+label = "SQL dialects"
+category = "structural-target"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = false
+
+[[technologies]]
+id = "docker"
+label = "Docker"
+category = "platform"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = false
+
+[[technologies]]
+id = "ollama"
+label = "Ollama"
+category = "ai-runtime"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "sqlite"
+label = "SQLite"
+category = "database"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "sqlcipher"
+label = "SQLCipher"
+category = "security"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "age"
+label = "age"
+category = "security"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "google-drive"
+label = "Google Drive"
+category = "integration"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "mysql"
+label = "MySQL"
+category = "database"
+affinities = ["sample-labs"]
+show_in_readme = false
+
+[[technologies]]
+id = "mariadb"
+label = "MariaDB"
+category = "database"
+affinities = ["sample-labs"]
+show_in_readme = false
+
+[[technologies]]
+id = "postgresql"
+label = "PostgreSQL"
+category = "database"
+affinities = ["sample-labs"]
+show_in_readme = false
+
+[[technologies]]
+id = "linux"
+label = "Linux"
+category = "platform"
+affinities = ["personal", "sample-labs"]
+cross_domain = true
+show_in_readme = false
+
+[[technologies]]
+id = "macos"
+label = "macOS"
+category = "platform"
+affinities = ["personal"]
+show_in_readme = false
+
+[[technologies]]
+id = "swift"
+label = "Swift"
+category = "language"
+affinities = ["personal", "sample-labs"]
+
+[[technologies]]
+id = "javascript"
+label = "JavaScript"
+category = "language"
+affinities = ["personal", "sample-labs"]
+
+[[projects]]
+id = "agent-tools"
+label = "agent-tools"
+surface_label = "agent-tools"
+domain = "personal"
+visibility = "private-abstract"
+status = "active"
+visual = "core"
+anchor = [315.0, 298.0]
+radius = 55.0
+weight = 0.8
+summary = "Hooks, skills, and rules\nfor coding agents"
+display_stack = ["Rust", "6 MCP endpoints"]
+implemented_with = ["rust"]
+show_in_readme = true
+
+[[projects.components]]
+id = "graph-mcp"
+label = "Graph"
+kind = "mcp"
+scope = "project"
+summary = "Code context."
+
+[[projects.components]]
+id = "memory-mcp"
+label = "Memory"
+kind = "mcp"
+scope = "project"
+summary = "Project memory."
+
+[[projects.components]]
+id = "knowledge-mcp"
+label = "Knowledge"
+kind = "mcp"
+scope = "global-and-project"
+summary = "Reusable knowledge."
+
+[[projects.components]]
+id = "experience-mcp"
+label = "Experience"
+kind = "mcp"
+scope = "global-and-project"
+summary = "Reusable experience."
+
+[[projects.components]]
+id = "workflow-mcp"
+label = "Workflow"
+kind = "mcp"
+scope = "project"
+summary = "Development workflows."
+
+[[projects.components]]
+id = "telemetry-mcp"
+label = "Telemetry"
+kind = "mcp"
+scope = "project"
+summary = "Development telemetry."
+
+[[projects]]
+id = "budget-board"
+label = "LedgerDemo"
+surface_label = "LedgerDemo"
+domain = "personal"
+visibility = "private-abstract"
+status = "active"
+visual = "finance"
+anchor = [159.0, 529.0]
+radius = 43.0
+weight = 0.8
+summary = "Personal finance with\nencrypted storage and backups"
+display_stack = ["Go", "SQLCipher", "age"]
+implemented_with = ["go"]
+show_in_readme = true
+
+[[projects]]
+id = "state-trace"
+label = "TraceDemo"
+surface_label = "TraceDemo"
+domain = "personal"
+visibility = "private-abstract"
+status = "active"
+visual = "trace"
+anchor = [607.0, 688.0]
+radius = 48.0
+weight = 0.8
+summary = "Filesystem monitoring"
+display_stack = ["Rust", "Swift", "SQLite"]
+implemented_with = ["rust", "swift"]
+show_in_readme = true
+
+[[projects]]
+id = "dotconfig"
+label = "ShellConfig"
+surface_label = "ShellConfig"
+domain = "personal"
+visibility = "private-abstract"
+status = "active"
+visual = "dotfiles"
+anchor = [227.0, 754.0]
+radius = 36.0
+weight = 0.8
+summary = "Shell, editor, and Git configuration"
+display_stack = ["Zsh", "Neovim", "Git", "Starship"]
+implemented_with = ["shell", "lua"]
+show_in_readme = true
+
+[[projects]]
+id = "editor-theme"
+label = "editor-theme"
+surface_label = "editor-theme"
+domain = "personal"
+visibility = "private-abstract"
+status = "active"
+visual = "theme"
+anchor = [704.0, 366.0]
+radius = 37.0
+weight = 0.8
+summary = "ShellConfig Mocha,\nbased on Example Palette"
+display_stack = ["TypeScript", "JSON"]
+implemented_with = ["typescript"]
+show_in_readme = true
+
+[[projects]]
+id = "mysql"
+label = "Sample.EntityFrameworkCore.MySql"
+surface_label = "MySql"
+domain = "sample-labs"
+visibility = "public"
+status = "active"
+visual = "provider"
+anchor = [1090.0, 318.0]
+radius = 48.0
+weight = 0.8
+summary = "Provider, spatial support & caching"
+display_stack = ["C#", ".NET", "EF Core"]
+implemented_with = ["csharp", "dotnet"]
+show_in_readme = true
+repository = "sample-labs/Sample.EntityFrameworkCore.MySql"
+label_prefix = "Sample.EntityFrameworkCore."
+
+[[projects]]
+id = "safe-migrations"
+label = "Sample.EntityFrameworkCore.SchemaTools"
+surface_label = "SchemaTools"
+domain = "sample-labs"
+visibility = "public"
+status = "active"
+visual = "migrations"
+anchor = [1530.0, 358.0]
+radius = 51.0
+weight = 0.8
+summary = "MySQL / MariaDB / PostgreSQL / SQLite"
+display_stack = ["C#", ".NET", "EF Core"]
+implemented_with = ["csharp", "dotnet"]
+show_in_readme = true
+repository = "sample-labs/Sample.EntityFrameworkCore.SchemaTools"
+label_prefix = "Sample.EntityFrameworkCore."
+
+[[projects]]
+id = "relational-lab"
+label = "DatabaseLab"
+surface_label = "DatabaseLab"
+domain = "sample-labs"
+visibility = "private-abstract"
+status = "active"
+visual = "lab"
+anchor = [1080.0, 766.0]
+radius = 42.0
+weight = 0.8
+summary = "A test lab for relational databases"
+display_stack = ["C#", ".NET", "JavaScript"]
+implemented_with = ["csharp", "dotnet", "javascript"]
+show_in_readme = true
+
+[[projects]]
+id = "nested-set"
+label = "Sample.EntityFrameworkCore.TreeModel"
+surface_label = "TreeModel"
+domain = "sample-labs"
+visibility = "public"
+status = "active"
+visual = "hierarchy"
+anchor = [1525.0, 726.0]
+radius = 48.0
+weight = 0.8
+summary = "Ordered hierarchies for EF Core"
+display_stack = ["C#", ".NET", "EF Core"]
+implemented_with = ["csharp", "dotnet"]
+show_in_readme = true
+repository = "sample-labs/Sample.EntityFrameworkCore.TreeModel"
+label_prefix = "Sample.EntityFrameworkCore."
+
+[[publications]]
+label_prefix = "Sample.EntityFrameworkCore."
+id = "mysql"
+label = "Sample.EntityFrameworkCore.MySql"
+surface_label = "Sample.EntityFrameworkCore.MySql"
+domain = "sample-labs"
+registry = "nuget"
+discovery_prefixes = ["Sample.EntityFrameworkCore.MySql", "Sample.Caching.MySql"]
+anchor = [76.0, 1017.0]
+summary = "Published NuGet packages."
+technologies = ["csharp", "dotnet"]
+show_in_readme = true
+
+[[publications.packages]]
+anchor = [92.0, 1067.0]
+id = "Sample.EntityFrameworkCore.MySql"
+family = "provider"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.MySql/"
+summary = "EF Core provider for MySQL and MariaDB"
+
+[[publications.packages]]
+anchor = [92.0, 1157.0]
+id = "Sample.EntityFrameworkCore.MySql.NetTopologySuite"
+family = "spatial"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.MySql.NetTopologySuite/"
+summary = "Spatial support"
+
+[[publications.packages]]
+anchor = [92.0, 1247.0]
+id = "Sample.Caching.MySql"
+family = "cache"
+url = "https://www.nuget.org/packages/Sample.Caching.MySql/"
+summary = "Distributed caching with MySQL"
+
+[[publications]]
+label_prefix = "Sample.EntityFrameworkCore."
+id = "safe-migrations"
+label = "Sample.EntityFrameworkCore.SchemaTools"
+surface_label = "Sample.EntityFrameworkCore.SchemaTools"
+domain = "sample-labs"
+registry = "nuget"
+discovery_prefixes = ["Sample.EntityFrameworkCore.SchemaTools"]
+anchor = [650.0, 1017.0]
+summary = "Published NuGet packages."
+technologies = ["csharp", "dotnet"]
+show_in_readme = true
+
+[[publications.packages]]
+anchor = [666.0, 1067.0]
+id = "Sample.EntityFrameworkCore.SchemaTools"
+family = "migrations"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools/"
+summary = "Migration safety checks"
+
+[[publications.packages]]
+anchor = [666.0, 1157.0]
+id = "Sample.EntityFrameworkCore.SchemaTools.MySql"
+family = "migrations"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.MySql/"
+summary = "MySQL and MariaDB adapter"
+
+[[publications.packages]]
+anchor = [666.0, 1247.0]
+id = "Sample.EntityFrameworkCore.SchemaTools.PostgreSql"
+family = "migrations"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.PostgreSql/"
+summary = "PostgreSQL adapter"
+
+[[publications.packages]]
+anchor = [666.0, 1337.0]
+id = "Sample.EntityFrameworkCore.SchemaTools.Sqlite"
+family = "migrations"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.SchemaTools.Sqlite/"
+summary = "SQLite adapter"
+
+[[publications]]
+label_prefix = "Sample.EntityFrameworkCore."
+id = "nested-set"
+label = "Sample.EntityFrameworkCore.TreeModel"
+surface_label = "Sample.EntityFrameworkCore.TreeModel"
+domain = "sample-labs"
+registry = "nuget"
+discovery_prefixes = ["Sample.TreeModel", "Sample.EntityFrameworkCore.TreeModel"]
+anchor = [1224.0, 1017.0]
+summary = "Published NuGet packages."
+technologies = ["csharp", "dotnet"]
+show_in_readme = true
+
+[[publications.packages]]
+anchor = [1240.0, 1067.0]
+id = "Sample.TreeModel"
+family = "hierarchy"
+url = "https://www.nuget.org/packages/Sample.TreeModel/"
+summary = "EF-independent node and bounds contracts"
+
+[[publications.packages]]
+anchor = [1240.0, 1157.0]
+id = "Sample.EntityFrameworkCore.TreeModel"
+family = "hierarchy"
+url = "https://www.nuget.org/packages/Sample.EntityFrameworkCore.TreeModel/"
+summary = "Ordered hierarchies, queries, and mutations"
+
+[[interests]]
+id = "other"
+label = "AI, self-hosting, Grafana, security."
+summary = "Personal interests."
+show_in_readme = true
+
+[[interests]]
+id = "functional-programming"
+label = "Elixir / Erlang / OCaml"
+summary = "Languages I want to explore."
+show_in_readme = true
+
+[[learning]]
+id = "example-learning"
+label = "Example Learning"
+url = "https://learn.example.org/"
+interest = "other"
+
+[[learning]]
+id = "example-security"
+label = "Example Security"
+url = "https://security.example.org/"
+interest = "other"
+
+[presentation]
+main_stack = ["C#", ".NET", "Rust", "Go", "TypeScript", "Angular"]
+supporting_stack = ["Python", "PHP", "Lua", "Shell", "HTML", "CSS", "SQL"]
+platforms = ["macOS", "Windows", "Linux"]
+platform_note = "Development on multiple operating systems."
+learning_note = "Member of both.\nLearning when I have the time."
+
+[[presentation.hardware]]
+label = "Example Laptop"
+detail = "Synthetic hardware fixture"
+
+[[presentation.hardware]]
+label = "Example Workstation"
+detail = "Synthetic memory configuration"
+
+[[presentation.hardware]]
+label = "Example Virtualization Host"
+detail = "For self-hosting."

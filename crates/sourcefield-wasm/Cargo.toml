@@ -1,0 +1,29 @@
+[package]
+name = "sourcefield-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen.workspace = true
+
+[package.metadata.wasm-pack.profile.release]
+# Rust's default wasm target and .cargo/config.toml enable these proposals. The
+# optimizer must accept the same features instead of rejecting valid compiler output.
+wasm-opt = [
+  "-O",
+  "--enable-bulk-memory",
+  "--enable-multivalue",
+  "--enable-mutable-globals",
+  "--enable-nontrapping-float-to-int",
+  "--enable-reference-types",
+  "--enable-sign-ext",
+]
+
+[lints]
+workspace = true

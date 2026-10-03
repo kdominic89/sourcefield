@@ -21,7 +21,7 @@ repository = "https://github.com/kdominic89/sourcefield"
 [workspace.dependencies]
 anyhow = "=1.0.104"
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "serde"] }
-clap = { version = "=4.6.6", features = ["derive"] }
+clap = { version = "=4.6.7", features = ["derive"] }
 hex = "=0.4.3"
 reqwest = { version = "=0.12.28", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "=1.0.229", features = ["derive"] }

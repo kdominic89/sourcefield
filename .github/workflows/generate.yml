@@ -1,0 +1,90 @@
+name: Generate a validated consumer candidate
+on:
+  workflow_call:
+    inputs:
+      config:
+        type: string
+        default: config/profile.toml
+      readmes:
+        description: JSON array of explicitly managed consumer-relative README paths
+        type: string
+        default: '["README.md"]'
+      caller_workflow:
+        type: string
+        default: .github/workflows/update-profile.yml
+      offline:
+        type: boolean
+        default: false
+      locked:
+        type: boolean
+        default: false
+    secrets:
+      PROFILE_TOKEN:
+        description: Optional explicitly approved account collection token
+        required: false
+    outputs:
+      artifact:
+        description: Complete validated consumer tree; caller owns publication
+        value: ${{ jobs.generate.outputs.artifact }}
+      source_commit:
+        description: Generator commit verified against the consumer lock
+        value: ${{ jobs.generate.outputs.source_commit }}
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      artifact: sourcefield-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+      source_commit: ${{ steps.identity.outputs.source_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: consumer
+          persist-credentials: false
+      - name: Check out this workflow's own immutable implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: generator
+          persist-credentials: false
+      - name: Check the caller lock and literal workflow mirror
+        id: identity
+        env:
+          OWN_SOURCE_COMMIT: ${{ job.workflow_sha }}
+          CALLER_WORKFLOW: ${{ inputs.caller_workflow }}
+        run: |
+          python3 generator/scripts/check_pin.py --lock consumer/sourcefield.lock.json --workflow "consumer/$CALLER_WORKFLOW" --own-commit "$OWN_SOURCE_COMMIT"
+          printf 'source_commit=%s\n' "$OWN_SOURCE_COMMIT" >> "$GITHUB_OUTPUT"
+      - name: Verify and install the pinned complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 generator/scripts/bootstrap_release.py --lock consumer/sourcefield.lock.json --destination "$RUNNER_TEMP/sourcefield-install"
+      - name: Generate and validate in a separate candidate tree
+        env:
+          PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          CONSUMER_CONFIG: ${{ inputs.config }}
+          CONSUMER_READMES: ${{ inputs.readmes }}
+          OFFLINE: ${{ inputs.offline }}
+          LOCKED: ${{ inputs.locked }}
+        run: |
+          options=()
+          if [[ "$OFFLINE" == true ]]; then
+            options+=(--offline)
+          fi
+
+          if [[ "$LOCKED" == true ]]; then
+            options+=(--locked)
+          fi
+
+          python3 generator/scripts/consumer_candidate.py --source consumer --destination "$RUNNER_TEMP/sourcefield-candidate" --installation "$RUNNER_TEMP/sourcefield-install" --config "$CONSUMER_CONFIG" --readmes "$CONSUMER_READMES" "${options[@]}"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sourcefield-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sourcefield-candidate
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14

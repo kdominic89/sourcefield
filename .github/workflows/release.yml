@@ -1,0 +1,144 @@
+name: Release Sourcefield
+on:
+  push:
+    tags: ['v[0-9]*']
+permissions:
+  contents: read
+concurrency:
+  group: sourcefield-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    uses: ./.github/workflows/validate.yml
+  native:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            executable: sourcefield
+            python: python3
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            executable: sourcefield
+            python: python3
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            executable: sourcefield
+            python: python3
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            executable: sourcefield
+            python: python3
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            executable: sourcefield.exe
+            python: python
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build and test on the target platform
+        env:
+          RELEASE_TARGET: ${{ matrix.target }}
+          SOURCEFIELD_SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          rustup show active-toolchain
+          cargo test --workspace --locked
+          cargo build --release --locked -p sourcefield-cli --target "$RELEASE_TARGET"
+      - name: Smoke test the actual release executable and package it
+        env:
+          RELEASE_TARGET: ${{ matrix.target }}
+          RELEASE_EXECUTABLE: ${{ matrix.executable }}
+          RELEASE_PYTHON: ${{ matrix.python }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          "target/$RELEASE_TARGET/release/$RELEASE_EXECUTABLE" --help
+          "target/$RELEASE_TARGET/release/$RELEASE_EXECUTABLE" --version
+          "$RELEASE_PYTHON" scripts/release_package.py --target "$RELEASE_TARGET" --binary "target/$RELEASE_TARGET/release/$RELEASE_EXECUTABLE" --source-commit "$SOURCE_COMMIT" --release "$RELEASE_TAG"
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: dist/*.zip
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+  browser:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - run: cargo install wasm-pack --version 0.15.0 --locked
+      - run: bash scripts/build-wasm.sh
+        env:
+          SOURCEFIELD_SOURCE_COMMIT: ${{ github.sha }}
+      - name: Package the complete runtime from the same source commit
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: python3 scripts/release_package.py --target browser --source-commit "$SOURCE_COMMIT" --release "$RELEASE_TAG"
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: dist/*.zip
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: release-browser
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: [native, browser]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Verify the complete matrix and write release metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: python3 scripts/release_manifest.py --directory dist --source-commit "$SOURCE_COMMIT" --release "$RELEASE_TAG"
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: |
+            dist/sourcefield.lock.json
+            dist/SHA256SUMS
+      - name: Assemble a draft, upload everything, then publish it immutably
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          SOURCEFIELD_IMMUTABLE_RELEASES: ${{ vars.SOURCEFIELD_IMMUTABLE_RELEASES }}
+        run: python3 scripts/release_publish.py --directory dist --source-commit "$SOURCE_COMMIT" --release "$RELEASE_TAG" --repository "$RELEASE_REPOSITORY"

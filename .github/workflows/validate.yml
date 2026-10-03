@@ -1,0 +1,63 @@
+name: Validate Sourcefield
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install the repository-pinned toolchain
+        run: rustup show active-toolchain
+      - name: Install the pinned WASM packager
+        run: cargo install wasm-pack --version 0.15.0 --locked
+      - name: Build the complete WASM runtime
+        run: bash scripts/build-wasm.sh
+      - name: Verify native, WASM, Python, browser modules and API documentation
+        run: bash scripts/verify.sh
+      - name: Provision the pinned existing browser test tool
+        run: |
+          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund --save-exact playwright@1.62.1
+          node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verify actual WASM/browser behavior for both variants and multiple organizations
+        run: |
+          cargo build --locked -p sourcefield-cli
+          python3 scripts/verify_publication.py --binary target/debug/sourcefield
+          python3 scripts/release_browser_fixtures.py --binary target/debug/sourcefield --output "$RUNNER_TEMP/browser-fixtures" --playwright-module "$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs"
+      - name: Retain browser evidence for review and failed-gate diagnosis
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sourcefield-browser-verification
+          path: ${{ runner.temp }}/browser-fixtures/evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  native-platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify native workspace on the actual platform
+        run: |
+          rustup show active-toolchain
+          cargo test --workspace --all-targets --locked
+          cargo build --locked -p sourcefield-cli
+      - name: Check portable distribution paths and Python boundaries
+        run: python -B -m unittest discover -s tests -p 'test_distribution.py'

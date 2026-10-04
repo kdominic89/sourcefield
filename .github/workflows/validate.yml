@@ -27,7 +27,11 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund --save-exact playwright@1.63.0
           node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
       - name: Verify actual WASM/browser behavior for both variants and multiple organizations
+        env:
+          # Ubuntu restricts downloaded Chromium user namespaces; use Chrome's installed helper.
+          CHROME_DEVEL_SANDBOX: /opt/google/chrome/chrome-sandbox
         run: |
+          python3 scripts/verify_browser_sandbox.py "$CHROME_DEVEL_SANDBOX"
           cargo build --locked -p sourcefield-cli
           python3 scripts/verify_publication.py --binary target/debug/sourcefield
           python3 scripts/release_browser_fixtures.py --binary target/debug/sourcefield --output "$RUNNER_TEMP/browser-fixtures" --playwright-module "$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs"

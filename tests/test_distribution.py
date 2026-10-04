@@ -1,6 +1,7 @@
 """Verify release trust, bounded extraction, pin consistency and failure isolation."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -616,11 +617,15 @@ class CandidateProvenanceTests(unittest.TestCase):
 
     def committed_consumer(self, root: Path) -> tuple[Path, str]:
         """Arrange an isolated organization checkout with a genuine committed manifest."""
+
         source = root / "source"
         source.mkdir()
         (source / "config").mkdir()
+        # Git autocrlf normalizes CRLF on commit; canonical provenance requires identical bytes.
         (source / "config/organization.toml").write_text(
-            'schema_version = 1\nid = "example-labs"\n'
+            'schema_version = 1\nid = "example-labs"\n',
+            encoding="utf-8",
+            newline="\n",
         )
         subprocess.run(["git", "init", "--quiet", str(source)], check=True)
         subprocess.run(
@@ -787,6 +792,82 @@ class CandidateProvenanceTests(unittest.TestCase):
                     for item in observed
                 )
             )
+            self.assertFalse((destination / ".git").exists())
+            self.assertTrue((source / ".git").is_dir())
+
+    def test_canonical_manifest_preserves_bytes_with_windows_autocrlf(self):
+        """Keep committed and generated manifest bytes equal under Windows text defaults."""
+
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(
+            os.environ,
+            {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "core.autocrlf",
+                "GIT_CONFIG_VALUE_0": "true",
+            },
+        ):
+            root = Path(temporary)
+            manifest = b'schema_version = 1\nid = "example-labs"\n'
+            write_text = Path.write_text
+
+            def write_windows_text(path: Path, data: str, **kwargs) -> int:
+                """Simulate Windows translation unless a caller selects an explicit newline."""
+
+                if kwargs.get("newline") is None:
+                    kwargs["newline"] = "\r\n"
+
+                return write_text(path, data, **kwargs)
+
+            with patch.object(Path, "write_text", new=write_windows_text):
+                source, commit = self.committed_consumer(root)
+
+            destination = root / "candidate"
+            installation = root / "installation"
+            installation.mkdir()
+            (installation / "sourcefield").touch()
+            observed = []
+            run = subprocess.run
+            autocrlf = run(
+                ["git", "config", "--get", "core.autocrlf"],
+                cwd=source,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+            def execute(command, **kwargs):
+                """Read real Git provenance at each native generation or validation boundary."""
+
+                if command[0] == str(installation / "sourcefield"):
+                    committed = run(
+                        ["git", "show", f"{commit}:config/organization.toml"],
+                        cwd=destination,
+                        check=True,
+                        capture_output=True,
+                    ).stdout
+                    generated = (destination / "config/organization.toml").read_bytes()
+                    observed.append((committed, generated))
+
+                    return subprocess.CompletedProcess(command, 0)
+
+                return run(command, **kwargs)
+
+            with patch.object(
+                consumer_candidate.subprocess, "run", side_effect=execute
+            ):
+                consumer_candidate.candidate(
+                    source,
+                    destination,
+                    installation,
+                    "config/profile.toml",
+                    [],
+                    False,
+                    False,
+                )
+
+            self.assertEqual(autocrlf, "true")
+            self.assertEqual((source / "config/organization.toml").read_bytes(), manifest)
+            self.assertEqual(observed, [(manifest, manifest), (manifest, manifest)])
             self.assertFalse((destination / ".git").exists())
             self.assertTrue((source / ".git").is_dir())
 

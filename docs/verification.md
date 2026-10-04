@@ -32,6 +32,17 @@ synthetic personal, organization and multiple-organization consumers, then runs 
 runner against all three. Release jobs depend on this gate. Fixture generation is offline; initial
 provisioning of Rust, WASM and browser test tools requires network access.
 
+On Ubuntu 24.04, AppArmor restricts user namespaces for downloaded Chromium builds. The browser
+step selects the runner-installed Google Chrome setuid helper through `CHROME_DEVEL_SANDBOX`,
+following Chromium's documented setup. `scripts/verify_browser_sandbox.py` checks that the helper
+is a regular, root-owned, executable setuid file without group/world write access before launch.
+`chromiumSandbox: true` remains enabled; the workflow does not change AppArmor or kernel settings.
+A missing or unsafe helper fails the gate instead of running Chromium without its sandbox.
+
+Canonical manifest fixtures explicitly use UTF-8 and LF. Git's committed blob is compared with the
+actual manifest bytes even when the test forces `core.autocrlf=true`. This keeps the Windows fixture
+portable without weakening the production provenance check.
+
 The caller template keeps Pages deployment in a separate job after publication. Re-running failed
 deployment jobs reuses the existing Pages artifact and does not rerun the stale-HEAD publication
 check or collect new data. Keep the run's artifacts until deployment succeeds.

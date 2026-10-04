@@ -25,5 +25,7 @@ version tag, downloadable artifact or hosted deployment exists.
 - Import provenance, filesystem boundaries and release integrity have positive and negative tests.
 
 - Refresh direct crate, Rust/browser tool and Action pins against dated primary release metadata.
+- Keep Chromium sandboxing enabled on Ubuntu by validating and using the installed Chrome helper.
+- Write canonical provenance fixtures with explicit LF and test byte identity under Windows autocrlf.
 
 Release dates and version sections will be added when an actual release is published.

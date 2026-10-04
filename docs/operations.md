@@ -61,6 +61,14 @@ remote imports without network access; absent required captures fail. `--offline
 checks the recorded authored inputs, capture digests and generator identity before replay. Neither mode
 fabricates missing import content or treats a remote failure as permission to replace configuration.
 
+## HTTPS trust on Linux
+
+Online collection and organization imports use the platform certificate store. Minimal Linux
+containers need a system CA bundle, usually provided by their distribution's `ca-certificates`
+package. Missing or incorrect trust material can cause HTTPS collection/import failures; install
+and maintain the OS trust bundle rather than disabling certificate verification. macOS and Windows
+use their platform trust stores. Offline generation does not require a certificate store.
+
 ## One-time migration
 
 Use `sourcefield migrate --source OLD --destination NEW --variant personal` or `organization`.

@@ -25,7 +25,7 @@ Workspace tests cover competing writers and interrupted promotion. Import tests 
 required sources and provenance isolation. Migration tests cover original-file preservation and
 unsupported formats. A release is complete only when these gates and consumer parity checks pass.
 
-The shared validation workflow provisions the existing Playwright test tool at exact version 1.62.1
+The shared validation workflow provisions the existing Playwright test tool at exact version 1.63.0
 in the runner's temporary directory and installs its Chromium build and Linux system prerequisites.
 No browser tool becomes a product dependency. `scripts/release_browser_fixtures.py` generates the
 synthetic personal, organization and multiple-organization consumers, then runs the real browser

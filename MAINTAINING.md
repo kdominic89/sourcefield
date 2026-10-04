@@ -47,6 +47,15 @@ whole runtime/data/index set. Never downgrade only the executable against a newe
 If the generated README commit succeeds but Pages fails, retry deployment of that same candidate.
 Do not collect new live observations merely to retry deployment. Verify the served version afterward.
 
+## Dependency updates
+
+Before an initial publication or release proposal, compare every direct crate, the pinned Rust and
+WASM/browser tools, and all Action references with their latest stable primary releases. Include
+consumer workflow templates in the Action audit. Checking that an existing version is published
+or that a build passes does not prove freshness. Record the retrieval date, release identities and
+Action commits in [SOURCES.md](SOURCES.md), then verify the updated lockfile, native workspace and
+actual WASM/browser bundle. Dependabot remains enabled for subsequent updates.
+
 ## Public documentation
 
 Before publication, verify the private contact in SECURITY.md and CODE_OF_CONDUCT.md. If GitHub

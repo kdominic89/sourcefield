@@ -70,9 +70,21 @@ Its transitive libraries are resolved in `Cargo.lock`; no separate direct TLS de
 - actions/upload-pages-artifact v5.0.0: https://github.com/actions/upload-pages-artifact/releases/tag/v5.0.0
 - actions/deploy-pages v5.0.1: https://github.com/actions/deploy-pages/releases/tag/v5.0.1
 - Ubuntu runner-installed browsers: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md
-- Chromium AppArmor and setuid-helper setup: https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
 - Python explicit text-file newlines: https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_text
 - Git text normalization: https://git-scm.com/docs/gitattributes
 
 - Rustls platform certificate-store behavior: https://github.com/rustls/rustls-platform-verifier/blob/main/README.md
 - AWS-LC native build requirements: https://aws.github.io/aws-lc-rs/requirements/index.html
+
+## Ubuntu browser sandbox
+
+- Actual failing runner image permission setup (20260927.320.1): https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/scripts/build/configure-system.sh
+- Playwright public bundled executable path: https://playwright.dev/docs/api/class-browsertype#browser-type-executable-path
+- Full Chromium headless selection and `--no-shell`: https://playwright.dev/docs/browsers#chromium-new-headless-mode
+- Chromium namespace allowlisting: https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+- Legacy SUID sandbox limitations: https://chromium.googlesource.com/chromium/src/+/main/docs/linux/suid_sandbox_development.md
+
+The image's final permission setup applies `chmod -R 777 /opt`, so its preinstalled Chrome helper
+does not retain trustworthy setuid permissions. The workflow uses the documented `userns` profile
+for one exact bundled executable instead. The browser path is resolved once and reused for the
+policy and explicit browser launch, retaining the pinned Playwright/Chromium pairing.

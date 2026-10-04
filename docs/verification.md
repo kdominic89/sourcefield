@@ -32,12 +32,18 @@ synthetic personal, organization and multiple-organization consumers, then runs 
 runner against all three. Release jobs depend on this gate. Fixture generation is offline; initial
 provisioning of Rust, WASM and browser test tools requires network access.
 
-On Ubuntu 24.04, AppArmor restricts user namespaces for downloaded Chromium builds. The browser
-step selects the runner-installed Google Chrome setuid helper through `CHROME_DEVEL_SANDBOX`,
-following Chromium's documented setup. `scripts/verify_browser_sandbox.py` checks that the helper
-is a regular, root-owned, executable setuid file without group/world write access before launch.
-`chromiumSandbox: true` remains enabled; the workflow does not change AppArmor or kernel settings.
-A missing or unsafe helper fails the gate instead of running Chromium without its sandbox.
+On Ubuntu 24.04, AppArmor restricts user namespaces for downloaded Chromium builds. The workflow
+resolves the pinned browser with Playwright's public `chromium.executablePath()` API and installs a
+root-owned AppArmor profile granting `userns` to that exact executable. The policy renderer rejects
+nonliteral, relative, noncanonical, missing or nonexecutable paths. The browser runner receives
+that same full Chromium path explicitly; it does not select the default headless shell. Only the
+used browser is downloaded with `--no-shell`.
+
+`chromiumSandbox: true` remains enabled. Loading this one profile does not disable AppArmor or
+change global kernel settings. A rejected path or policy load fails before browser verification.
+The runner-installed Chrome helper is unsuitable: the runner image applies `chmod -R 777 /opt`,
+removing the helper's setuid bit and making it writable. Local Linux sandbox tests and AppArmor
+parser checks complement, but cannot replace, a hosted run with Ubuntu's namespace restrictions.
 
 Canonical manifest fixtures explicitly use UTF-8 and LF. Git's committed blob is compared with the
 actual manifest bytes even when the test forces `core.autocrlf=true`. This keeps the Windows fixture

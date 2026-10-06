@@ -97,6 +97,9 @@ policy and explicit browser launch, retaining the pinned Playwright/Chromium pai
   https://doc.rust-lang.org/std/vec/struct.Vec.html#method.with_capacity
 - Reading to EOF does not promise a fixed final capacity:
   https://doc.rust-lang.org/std/io/trait.Read.html#method.read_to_end
+- Job execution timeout and environment dispatch:
+  https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes
+  https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments
 - crates.io excludes yanked versions when calculating the highest stable release:
   https://github.com/rust-lang/crates.io/blob/0ea9b2cc5237d037b7e690d26015bc458cf14d28/crates/crates_io_database/src/models/krate.rs#L193
   https://doc.rust-lang.org/cargo/commands/cargo-yank.html

@@ -71,7 +71,7 @@ impl Collector {
         let mut headers = HeaderMap::new();
         headers.insert(
             USER_AGENT,
-            HeaderValue::from_static("sourcefield-profile/0.3"),
+            HeaderValue::from_static(concat!("sourcefield-profile/", env!("CARGO_PKG_VERSION"))),
         );
         headers.insert(
             ACCEPT,
@@ -284,7 +284,7 @@ impl Collector {
             .json(&body);
         let response = send_read_request(request).await?;
 
-        let value: Value = decode(response, &self.graphql_api).await?;
+        let value: Value = decode(response).await?;
         if value.get("errors").is_some() {
             return Err(CollectorError::GraphQl);
         }
@@ -470,43 +470,38 @@ impl Collector {
             ]);
 
             match send_read_request(request).await {
-                Ok(response) => {
-                    let url = response.url().to_string();
-                    match decode::<NugetSearchResponse>(response, &url).await {
-                        Ok(result) => {
-                            if let Some(found) = result.data.into_iter().find(|value| {
-                                value.id.eq_ignore_ascii_case(&package.id)
-                                    && !value.version.is_empty()
-                                    && expected_owner
-                                        .is_none_or(|owner| value.owners.contains(owner))
-                            }) {
-                                packages.push(PackageSnapshot {
-                                    id: package.id.clone(),
-                                    owner: expected_owner.map(str::to_owned),
-                                    version: Some(found.version),
-                                    total_downloads: found.total_downloads,
-                                    updated_at: None,
-                                    url: Some(package.url.clone()),
-                                });
-                            } else {
-                                warnings.push(
-                                    CollectorWarning::NugetNoExactMatch(&package.id).to_string(),
-                                );
-                                packages.push(PackageSnapshot {
-                                    id: package.id.clone(),
-                                    url: Some(package.url.clone()),
-                                    ..PackageSnapshot::default()
-                                });
-                            }
-                        }
-
-                        Err(_) => {
-                            warnings.push(
-                                CollectorWarning::NugetMetadataUnavailable(&package.id).to_string(),
-                            );
+                Ok(response) => match decode::<NugetSearchResponse>(response).await {
+                    Ok(result) => {
+                        if let Some(found) = result.data.into_iter().find(|value| {
+                            value.id.eq_ignore_ascii_case(&package.id)
+                                && !value.version.is_empty()
+                                && expected_owner.is_none_or(|owner| value.owners.contains(owner))
+                        }) {
+                            packages.push(PackageSnapshot {
+                                id: package.id.clone(),
+                                owner: expected_owner.map(str::to_owned),
+                                version: Some(found.version),
+                                total_downloads: found.total_downloads,
+                                updated_at: None,
+                                url: Some(package.url.clone()),
+                            });
+                        } else {
+                            warnings
+                                .push(CollectorWarning::NugetNoExactMatch(&package.id).to_string());
+                            packages.push(PackageSnapshot {
+                                id: package.id.clone(),
+                                url: Some(package.url.clone()),
+                                ..PackageSnapshot::default()
+                            });
                         }
                     }
-                }
+
+                    Err(_) => {
+                        warnings.push(
+                            CollectorWarning::NugetMetadataUnavailable(&package.id).to_string(),
+                        );
+                    }
+                },
 
                 Err(_) => warnings
                     .push(CollectorWarning::NugetMetadataUnavailable(&package.id).to_string()),
@@ -548,7 +543,7 @@ impl Collector {
             ]);
             let response = send_read_request(request).await?;
 
-            let result: NugetSearchResponse = decode(response, endpoint).await?;
+            let result: NugetSearchResponse = decode(response).await?;
             let total = result
                 .total_hits
                 .ok_or_else(|| CollectorError::Response("NuGet totalHits missing".into()))?;
@@ -620,7 +615,7 @@ impl Collector {
     /// Resolve the versioned NuGet search resource from the authoritative service index.
     async fn nuget_search_endpoint(&self) -> Result<String, CollectorError> {
         let response = send_read_request(self.client.get(&self.nuget_api)).await?;
-        let index: Value = decode(response, &self.nuget_api).await?;
+        let index: Value = decode(response).await?;
         let endpoint = index
             .get("resources")
             .and_then(Value::as_array)
@@ -641,9 +636,6 @@ impl Collector {
         let parsed = reqwest::Url::parse(endpoint)
             .map_err(|_| CollectorError::Response("invalid NuGet resource URL".into()))?;
 
-        let index_url = reqwest::Url::parse(&self.nuget_api)
-            .map_err(|_| CollectorError::Response("invalid NuGet index URL".into()))?;
-
         if !parsed.username().is_empty()
             || parsed.password().is_some()
             || parsed.fragment().is_some()
@@ -653,17 +645,30 @@ impl Collector {
             ));
         }
 
-        if parsed.scheme() != "https"
-            && !(index_url.scheme() == "http"
-                && index_url.host_str() == Some("127.0.0.1")
-                && parsed.host_str() == Some("127.0.0.1"))
-        {
+        if parsed.scheme() != "https" {
+            // Unit fixtures serve plain HTTP; production builds admit only HTTPS resources.
+            #[cfg(test)]
+            if self.is_local_http_fixture(&parsed) {
+                return Ok(endpoint.to_string());
+            }
+
             return Err(CollectorError::Response(
                 "NuGet resource requires HTTPS".into(),
             ));
         }
 
         Ok(endpoint.to_string())
+    }
+
+    /// Permit only the exact loopback HTTP origin owned by the unit fixture.
+    #[cfg(test)]
+    fn is_local_http_fixture(&self, resource: &reqwest::Url) -> bool {
+        reqwest::Url::parse(&self.nuget_api).is_ok_and(|index| {
+            index.scheme() == "http"
+                && index.host_str() == Some("127.0.0.1")
+                && resource.scheme() == "http"
+                && resource.origin() == index.origin()
+        })
     }
 
     async fn fetch_contributions(
@@ -716,7 +721,7 @@ query SourcefieldProfile($login: String!, $from: DateTime!, $to: DateTime!) {
             send_read_request(self.authorized(self.client.post(&self.graphql_api).json(&body)))
                 .await?;
 
-        let value: Value = decode(response, &self.graphql_api).await?;
+        let value: Value = decode(response).await?;
         if value.get("errors").is_some() {
             return Err(CollectorError::GraphQl);
         }
@@ -828,7 +833,7 @@ query SourcefieldProfile($login: String!, $from: DateTime!, $to: DateTime!) {
     ) -> Result<T, CollectorError> {
         let url = format!("{}{endpoint}", self.github_api);
         let response = send_read_request(self.authorized(self.client.get(&url))).await?;
-        decode(response, &url).await
+        decode(response).await
     }
 
     fn authorized(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
@@ -1103,7 +1108,6 @@ impl NugetOwners {
 
 async fn decode<T: for<'de> Deserialize<'de>>(
     mut response: reqwest::Response,
-    _url: &str,
 ) -> Result<T, CollectorError> {
     let status = response.status();
     if !status.is_success() {
@@ -1326,6 +1330,144 @@ mod tests {
             "followers": 0
         })
         .to_string()
+    }
+
+    /// The request identifies the actual crate version without a second maintained pin.
+    #[tokio::test]
+    async fn user_agent_tracks_the_package_version() {
+        let (endpoint, requests, worker) = fixture(vec![(200, account())]);
+        let mut collector = Collector::new(None).unwrap();
+        collector.github_api = endpoint;
+
+        let result = collector.fetch_account("owner", AccountKind::User).await;
+
+        worker.join().unwrap();
+        assert!(result.is_ok());
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0].lines().any(|line| {
+            line.eq_ignore_ascii_case(concat!(
+                "user-agent: sourcefield-profile/",
+                env!("CARGO_PKG_VERSION")
+            ))
+        }));
+    }
+
+    /// Neither an upstream payload nor its sensitive URL may enter a decode diagnostic.
+    #[tokio::test]
+    async fn malformed_body_diagnostic_excludes_url_and_payload() {
+        let (endpoint, _, worker) = fixture(vec![(200, "never-log-payload".into())]);
+        let mut collector = Collector::new(None).unwrap();
+        collector.github_api = endpoint;
+
+        let result = collector
+            .get_github::<Value>("/private-path?credential=never-log-secret")
+            .await;
+
+        worker.join().unwrap();
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unexpected API response: invalid response JSON"
+        );
+    }
+
+    /// A local service index still rejects non-HTTP resource schemes.
+    #[tokio::test]
+    async fn mock_index_rejects_non_http_loopback_resource() {
+        let resource = "ftp://127.0.0.1/query";
+
+        let (result, request_count) = resolve_fixture_resource(resource).await;
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unexpected API response: NuGet resource requires HTTPS"
+        );
+        assert_eq!(request_count, 1);
+    }
+
+    /// The mock exemption cannot admit another local service on a different port.
+    #[tokio::test]
+    async fn mock_index_rejects_other_loopback_origin() {
+        let resource = "http://127.0.0.1:1/query";
+
+        let (result, request_count) = resolve_fixture_resource(resource).await;
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unexpected API response: NuGet resource requires HTTPS"
+        );
+        assert_eq!(request_count, 1);
+    }
+
+    /// An untrusted remote HTTP resource is never admitted through a local fixture.
+    #[tokio::test]
+    async fn mock_index_rejects_remote_http_resource() {
+        let resource = "http://example.invalid/query";
+
+        let (result, request_count) = resolve_fixture_resource(resource).await;
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unexpected API response: NuGet resource requires HTTPS"
+        );
+        assert_eq!(request_count, 1);
+    }
+
+    /// The local exemption cannot bypass credential rejection.
+    #[tokio::test]
+    async fn mock_index_rejects_resource_credentials() {
+        let resource = "http://never-log-secret@127.0.0.1/query";
+
+        let (result, request_count) = resolve_fixture_resource(resource).await;
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unexpected API response: invalid NuGet resource URL"
+        );
+        assert_eq!(request_count, 1);
+    }
+
+    /// URL fragments remain forbidden for otherwise valid HTTPS resources.
+    #[tokio::test]
+    async fn service_index_rejects_resource_fragment() {
+        let resource = "https://example.invalid/query#never-log-secret";
+
+        let (result, request_count) = resolve_fixture_resource(resource).await;
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "unexpected API response: invalid NuGet resource URL"
+        );
+        assert_eq!(request_count, 1);
+    }
+
+    /// Normal HTTPS service resources remain valid without contacting the resource.
+    #[tokio::test]
+    async fn service_index_accepts_https_resource() {
+        let resource = "https://example.invalid/query";
+
+        let (result, request_count) = resolve_fixture_resource(resource).await;
+
+        assert_eq!(result.unwrap(), resource);
+        assert_eq!(request_count, 1);
+    }
+
+    /// Serve only the service index so rejection is proven before a second request.
+    async fn resolve_fixture_resource(resource: &str) -> (Result<String, CollectorError>, usize) {
+        let index = json!({
+            "resources": [{"@type": "SearchQueryService", "@id": resource}]
+        })
+        .to_string();
+        let (endpoint, requests, worker) = fixture(vec![(200, index)]);
+        let mut collector = Collector::new(None).unwrap();
+        collector.nuget_api = endpoint;
+
+        let result = collector.nuget_search_endpoint().await;
+
+        worker.join().unwrap();
+        let request_count = requests.lock().unwrap().len();
+
+        (result, request_count)
     }
 
     #[tokio::test]

@@ -34,6 +34,7 @@ version tag, downloadable artifact or hosted deployment exists.
 - Preserve distinct component integration and target edges and reject duplicate relation entries.
 - Verify replay provenance after recovery under the workspace lock and distinguish lock contention
   from filesystem errors.
+- Keep collector version identification current and loopback HTTP support confined to tests.
 - Diagnose yanked tool pins explicitly while retaining reviewed updates and downgrade protection.
 
 Release dates and version sections will be added when an actual release is published.

@@ -31,6 +31,8 @@ version tag, downloadable artifact or hosted deployment exists.
 - Keep wasm-pack in one authoritative pin with a bounded weekly registry check and reviewed update command.
 - Cover Rust toolchain and locked Playwright npm updates through Dependabot while preserving browser sandboxing.
 - Reject recreated SVG styles and inline style attributes before XML parsing, with adversarial browser regressions.
+- Document enforced repository controls and the available GitHub private vulnerability reporting route.
+
 - Preserve distinct component integration and target edges and reject duplicate relation entries.
 - Verify replay provenance after recovery under the workspace lock and distinguish lock contention
   from filesystem errors.
@@ -38,6 +40,6 @@ version tag, downloadable artifact or hosted deployment exists.
 - Verify documentation previews against the renderer and include community files in source archives.
 - Diagnose yanked tool pins explicitly while retaining reviewed updates and downgrade protection.
 - Check byte-reader correctness and a retained allocation budget without requiring exact Vec capacity.
-- Bound release publication runtime.
+- Bound release publication runtime and align maintenance documentation with the public repository.
 
 Release dates and version sections will be added when an actual release is published.

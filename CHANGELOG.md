@@ -36,5 +36,6 @@ version tag, downloadable artifact or hosted deployment exists.
   from filesystem errors.
 - Keep collector version identification current and loopback HTTP support confined to tests.
 - Diagnose yanked tool pins explicitly while retaining reviewed updates and downgrade protection.
+- Check byte-reader correctness and a retained allocation budget without requiring exact Vec capacity.
 
 Release dates and version sections will be added when an actual release is published.

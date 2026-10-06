@@ -40,6 +40,7 @@ ROOT_FILES = {
     "tools/wasm-pack-version.txt",
     "tools/browser/package.json",
     "tools/browser/package-lock.json",
+    "crates/sourcefield-io/README.md",
 }
 
 TREE_TYPES = {

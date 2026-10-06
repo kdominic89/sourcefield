@@ -28,6 +28,22 @@ cargo test -p sourcefield-cli runtime::tests
 cargo clippy -p sourcefield-io -p sourcefield-workspace -p sourcefield-cli --all-targets -- -D warnings
 ```
 
-Allocation measurements for runtime reads at 64 KiB and the 16 MiB admission limit
-retain the previous single payload allocation and exact payload capacity. This
-supports preserving memory behavior; it does not establish a throughput speedup.
+The portable file-read tests check exact content, empty input, size admission,
+shrinkage, and growth both within and beyond the byte limit. They do not require
+an exact vector capacity: Rust permits `Vec::with_capacity` to reserve more than
+requested, and `Read::read_to_end` can grow the allocation.
+
+Separate active allocation-budget tests enforce a product memory target on the
+repository's pinned Rust 1.99.0 toolchain: a successful 64 KiB or 16 MiB file read
+may retain at most the payload size plus 4 KiB of vector capacity. The 4 KiB margin
+allows excess reservation without accepting a second payload-sized reservation.
+This is a supported-toolchain performance budget, not a standard-library guarantee;
+a failure requires inspecting the allocation change. These tests run in the normal
+native test suite. To print the measurements explicitly:
+
+```sh
+cargo test -p sourcefield-io allocation_budget -- --nocapture
+```
+
+The measurement covers only the returned byte vector's retained capacity. It does
+not measure allocator call count, transient allocations, peak RSS, or throughput.

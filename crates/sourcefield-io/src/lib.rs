@@ -247,15 +247,78 @@ mod tests {
         }
     }
 
+    /// Size admission preserves every payload byte at the exact boundary.
     #[test]
-    fn admitted_file_uses_exact_payload_capacity() {
-        let fixture = TestFile::create(&[42; 65536]);
+    fn admitted_file_preserves_payload_at_exact_limit() {
+        let payload: Vec<u8> = (0..65536).map(|index| (index % 251) as u8).collect();
+        let fixture = TestFile::create(&payload);
         let file = std::fs::File::open(&fixture.0).unwrap();
 
-        let bytes = read_file_bounded(file, 65536).unwrap();
+        let bytes = read_file_bounded(file, payload.len() as u64).unwrap();
 
-        assert_eq!(bytes.len(), 65536);
-        assert_eq!(bytes.capacity(), 65536);
+        assert_eq!(bytes, payload);
+    }
+
+    /// An empty admitted file needs no sentinel byte in its returned content.
+    #[test]
+    fn admitted_empty_file_accepts_zero_limit() {
+        let fixture = TestFile::create(b"");
+        let file = std::fs::File::open(&fixture.0).unwrap();
+
+        let bytes = read_file_bounded(file, 0).unwrap();
+
+        assert!(bytes.is_empty());
+    }
+
+    /// Growth that stays within the byte limit must remain complete.
+    #[test]
+    fn input_growth_within_limit_preserves_all_bytes() {
+        let grown_input = b"abcde";
+        let bytes = Vec::with_capacity(4);
+
+        let result = read_into_bounded(grown_input.as_slice(), 5, bytes).unwrap();
+
+        assert_eq!(result, grown_input);
+    }
+
+    /// EOF after a file shrinks cannot return uninitialized or stale reserved bytes.
+    #[test]
+    fn input_shrink_returns_only_available_bytes() {
+        let shrunk_input = b"abc";
+        let bytes = Vec::with_capacity(5);
+
+        let result = read_into_bounded(shrunk_input.as_slice(), 5, bytes).unwrap();
+
+        assert_eq!(result, shrunk_input);
+    }
+
+    /// Enforce the pinned-toolchain retained Vec budget, not a peak-RSS or allocator-call bound.
+    #[test]
+    fn admitted_64_kib_file_stays_within_allocation_budget() {
+        assert_admitted_file_allocation_budget(64 * 1024);
+    }
+
+    /// Enforce the same retained Vec budget at the runtime ceiling, independently of peak RSS.
+    #[test]
+    fn admitted_16_mib_file_stays_within_allocation_budget() {
+        assert_admitted_file_allocation_budget(16 * 1024 * 1024);
+    }
+
+    /// Allow a 4 KiB margin rather than imposing an exact-capacity standard-library contract.
+    fn assert_admitted_file_allocation_budget(payload_bytes: usize) {
+        let payload = vec![42; payload_bytes];
+        let fixture = TestFile::create(&payload);
+        let file = std::fs::File::open(&fixture.0).unwrap();
+        let budget_bytes = payload_bytes + 4096;
+
+        let bytes = read_file_bounded(file, payload_bytes as u64).unwrap();
+
+        eprintln!(
+            "payload_bytes={payload_bytes} retained_capacity_bytes={} budget_bytes={budget_bytes}",
+            bytes.capacity()
+        );
+        assert_eq!(bytes, payload);
+        assert!(bytes.capacity() <= budget_bytes);
     }
 
     #[test]

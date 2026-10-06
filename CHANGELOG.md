@@ -24,6 +24,12 @@ version tag, downloadable artifact or hosted deployment exists.
 
 ### Correctness and reliability
 
+- Start releases with one owner-authorized manual dispatch on main; create version tags only after
+  complete builds, provenance verification and uploaded asset checks, without a second approval.
+- Set the first intended release version to 0.1.0 and make matching draft retries resumable while
+  verifying already-published releases without modifying them. Reject incorrect dispatches and
+  already-used tags before building; require an explicitly entered version matching Cargo.toml.
+
 - Preserve non-selected canonical imports, source provenance and shared technology bindings during
   organization extraction; retain live local references after relocating the exported profile.
 - Support `extract-organization --assets` for captured imports and saved layout outside `assets`.

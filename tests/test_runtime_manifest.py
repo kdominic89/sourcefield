@@ -31,7 +31,7 @@ class RuntimeManifestTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"fixture: {name}\n", encoding="ascii")
 
-        (self.root / "Cargo.toml").write_text('[workspace.package]\nversion = "0.3.0"\n', encoding="ascii")
+        (self.root / "Cargo.toml").write_text('[workspace.package]\nversion = "0.1.0"\n', encoding="ascii")
         (self.root / "runtime/pkg").mkdir()
         (self.root / "runtime/pkg/sourcefield_wasm.js").write_text("export default function() {}", encoding="ascii")
         (self.root / "runtime/pkg/sourcefield_wasm_bg.wasm").write_bytes(b"\0asm\x01\0\0\0")
@@ -43,7 +43,7 @@ class RuntimeManifestTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["source_revision"], "unreleased")
-        self.assertEqual(first["generator_version"], "0.3.0")
+        self.assertEqual(first["generator_version"], "0.1.0")
         self.assertEqual(set(first["files"]), set(MANIFEST.RUNTIME_FILES))
         self.assertEqual(len(first["source_fingerprint"]), 64)
         self.assertTrue(json.dumps(first).isascii())

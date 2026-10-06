@@ -98,20 +98,51 @@ A failed online import prevents candidate publication even when observation fall
 Provision complete captured imports for offline generation; locked offline replay additionally enforces
 recorded input and generator identity. An observation cache cannot replace missing imported configuration.
 
-## Publisher approval
+## Manual release
 
-The `release` environment requires approval by the repository owner. Self-review is permitted
-because the owner is currently the only maintainer. Disable administrator bypass through the
-GitHub environment UI before publication. Its deployment policy accepts version-tag refs matching `v*`; the workflow
-itself starts only for `v[0-9]*` tags. Tag creation is owner-restricted independently from rules that
-prevent existing version tags from being updated or deleted. A tag pattern alone does not prove
-that its commit belongs to main: select an already merged, verified main commit for publication.
+The first intended release version is `0.1.0`; this statement does not claim a published release.
+In GitHub, open **Actions -> Release Sourcefield -> Run workflow**, select `main`, enter the exact
+workspace version without `v`, and start the workflow once. That owner dispatch authorizes publication;
+there is no second environment review or manual tag push. The workflow also checks the owner on a
+publish-only retry, because its current initiating actor can differ from the original dispatcher.
+The version input has no default. A dispatch from another branch fails with a clear error.
+
+The dispatch fixes `github.sha` for validation, every build, package, attestation and final release.
+Before any target build, the version must match `Cargo.toml` and its tag must be absent. This read-only
+preflight rejects an already-used version without repeating the build matrix; draft identity is
+checked later with publication permissions. All five native targets and the complete browser bundle
+must pass before publication. The publisher verifies checksums and build
+provenance, creates a draft without a Git tag, uploads all files and checks their exact remote
+inventory and SHA-256 digests. Publishing the complete draft creates the tag at that same commit.
+A failed build or upload does not reserve a version tag. A failed upload can leave a resumable draft.
+
+A rerun keeps the original commit. Resume a failed upload only against its matching draft and full
+source SHA. If source corrections are needed, remove the failed unpublished draft before dispatching
+the corrected main commit for that version; never retarget an existing draft silently. If publication
+already succeeded but final verification failed, retrying publication only verifies the existing
+release and assets. It never replaces a published version. Published tags and files remain immutable.
+
+The `release` environment allows only `main` and has no required reviewers or wait timer.
+The creation-only tag restriction is disabled so the write-scoped workflow token can create its tag;
+the independent version-tag integrity rule remains in place. Owner/main checks govern this workflow,
+not every possible caller with repository write access. No additional token or GitHub App is needed.
 
 The repository's immutable-release feature must be enabled before setting
 `SOURCEFIELD_IMMUTABLE_RELEASES=true`. This variable confirms the inspected setting; it does not
 activate immutability. The publication script refuses to publish without the exact confirmation.
-Approval, uploaded artifacts and configured settings do not by themselves prove a successful
-immutable release. Verify a separately authorized publication and its release/asset attestations
-before selecting it in consumer locks.
+Uploaded artifacts and configured settings do not by themselves prove a successful immutable release.
+Verify the actual publication and its release/asset attestations before selecting it in consumer locks.
+
+GitHub may reject publication of an older fixed commit if `main` has changed its workflow files
+while the release was building: that API case requires a permission the workflow token cannot hold.
+The API returns `404 Not Found`, or `403 Resource not accessible by integration` on some authentication
+paths. Such a failure remains visible and never substitutes the newer commit. Keep workflow updates separate
+from an active release attempt. See GitHub's [release API permissions](https://docs.github.com/en/rest/releases/releases#create-a-release).
 
 [Repository settings](repository-settings.md) records the contribution and release controls.
+
+Primary behavior references: [manual dispatch](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch),
+[release target and workflow permissions](https://docs.github.com/en/rest/releases/releases#create-a-release),
+[CLI draft creation](https://cli.github.com/manual/gh_release_create),
+[immutable release guidance](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
+and [rerun commit identity](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs).

@@ -54,10 +54,18 @@ def manifest(directory: Path, source_commit: str, release: str) -> Path:
 def main() -> int:
     """Produce release metadata only after every matrix asset has arrived."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--directory", type=Path, required=True)
-    parser.add_argument("--source-commit", required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--directory", type=Path)
+    mode.add_argument("--check-version", action="store_true")
+    parser.add_argument("--source-commit")
     parser.add_argument("--release", required=True)
     args = parser.parse_args()
+    if args.check_version and args.source_commit is not None:
+        parser.error("--source-commit is not accepted with --check-version")
+
+    if not args.check_version and args.source_commit is None:
+        parser.error("--source-commit is required for release assembly")
+
     root = Path(__file__).resolve().parents[1]
     version = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))[
         "workspace"
@@ -65,6 +73,11 @@ def main() -> int:
 
     if args.release != f"v{version}":
         parser.error("release tag must match the workspace package version")
+
+    if args.check_version:
+        print(args.release)
+
+        return 0
 
     print(manifest(args.directory, args.source_commit, args.release))
 

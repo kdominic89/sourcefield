@@ -12,14 +12,20 @@ GitHub Actions checks against the current base:
 - `native-platforms (macos-15)`
 - `native-platforms (windows-2025)`
 
-Zero required reviewer approvals support the current sole-maintainer workflow; the owner has no
-routine ruleset bypass. Force pushes and main deletion are blocked. Squash and rebase preserve a
+Zero required reviewer approvals support ordinary sole-maintainer pull requests without a bypass.
+The existing administrator bypass remains configured. Force pushes and main deletion are blocked. Squash and rebase preserve a
 linear history; merge commits are disabled. Auto-merge remains available for deliberately selected
 PRs and does not constitute a blanket Dependabot auto-merge policy.
 
-Two independent `v*` tag rulesets restrict creation to the owner and forbid updates/deletion without
-bypass. The creation permission does not permit modifying an existing tag. For release approval,
-see [distribution](distribution.md).
+The `v*` creation-only tag ruleset is disabled so the release workflow's narrowly scoped token can
+create a tag after its assets pass validation. The separate tag-integrity ruleset remains active
+and blocks updates/deletion except for its preexisting administrator-role bypass (`RepositoryRole`,
+role ID `5`, mode `always`). The release redesign does not change that exception. Immutable release
+publication additionally locks its tag and files independently of the ruleset bypass. Tag creation no longer has a server-side owner-only
+restriction; the manual release workflow requires both the original and current initiating actor to
+be the repository owner on `main`. The `release` environment allows `main` only, with no required
+reviewers or wait timer. The manual dispatch is the publication approval. See
+[distribution](distribution.md).
 
 ## Actions and scanning
 

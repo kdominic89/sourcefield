@@ -1,7 +1,8 @@
 # Primary implementation sources
 
-Checked on 2026-10-04. These references establish external API behavior, not evidence that a hosted
-release or deployment has already run.
+The initial references were checked on 2026-10-04; later sections record their own verification dates.
+These references establish external API behavior, not evidence that a hosted release or deployment
+has already run.
 
 - Reusable workflows and immutable commit references: https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows
 - Caller/callee permissions: https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations
@@ -125,3 +126,23 @@ The catalog uses typed absolute commands and semantic paint enums instead of par
 An element-name allowlist alone would still admit executable attributes or external references.
 Geometry admission therefore happens in the shared core, before SVG rendering, and the
 existing browser SVG boundary remains in place. No new dependency is required.
+
+## Manual release contracts checked on 2026-10-06
+
+- Dispatch captures the selected ref and commit: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch
+- Original and current initiating actors: https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context
+- Reruns preserve the original SHA/ref: https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs
+- Draft flag, fixed target commit and workflow-file permission failures: https://docs.github.com/en/rest/releases/releases#create-a-release
+- Draft lookup requires push access: https://docs.github.com/en/rest/releases/releases#list-releases
+- CLI draft creation and immutable publication: https://cli.github.com/manual/gh_release_create
+- Exact matching refs and empty successful responses: https://docs.github.com/en/rest/git/refs#list-matching-references
+- Tag-qualified commit resolution (`tags/TAG_NAME`): https://docs.github.com/en/rest/commits/commits#get-a-commit
+- Uploaded asset digests can be null: https://docs.github.com/en/rest/releases/assets#get-a-release-asset
+- Immutability and non-reusable published tag names: https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases
+- Repository immutability setting and administration-read requirement: https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository
+
+The release target is ignored when its tag already exists, so both preparation and publication
+require an absent tag. Preparation has read access and cannot validate every unpublished draft;
+the publisher checks matching draft identity, complete asset names, sizes and digests before its
+final tag check. `--draft` leaves the new tag pending until publication. A missing remote digest is
+rejected rather than accepted as evidence. The publication token receives no administration scope.

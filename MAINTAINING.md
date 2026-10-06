@@ -3,28 +3,32 @@
 ## Release prerequisites
 
 Before a release, verify the controls on the public `kdominic89/sourcefield` repository against
-[repository-settings.md](docs/repository-settings.md). Confirm immutable releases and the protected
-`release` environment, and review who may push version tags or approve its jobs. Set the repository
-variable `SOURCEFIELD_IMMUTABLE_RELEASES` to `true` only after checking the setting.
+[repository-settings.md](docs/repository-settings.md). Confirm immutable releases, the main-only
+`release` environment without a second approval, and owner checks on dispatch and publication.
+The creation-only tag restriction must permit the workflow token; preserve tag integrity controls.
+Set the repository variable `SOURCEFIELD_IMMUTABLE_RELEASES` to `true` only after checking the setting.
 The variable records operator setup; it is not API proof of the setting. The settings endpoint needs
 administration-read permission, which the publication token intentionally lacks. The workflow verifies
 the actual immutable release immediately after publication and reports failure if verification fails.
 Do not grant repository administration to the publication token.
 
 The publish job has a 20-minute execution timeout for artifact download, verification, upload and
-publication. Environment approval happens before runner dispatch and has its own GitHub wait limit.
+publication. The owner's manual dispatch is the publication approval; no later review is required.
 After a timeout, inspect the release: retry an incomplete draft, or verify an already-published
 immutable release before deciding on further action. Never delete or overwrite a published release.
 
 The repository version and intended version tag must agree. Review both real consumers with captured
-inputs and a synthetic second organization before approving a release. The release workflow runs
+inputs and a synthetic second organization before starting the release workflow. The release workflow runs
 verification, builds and smoke-tests all five native targets, packages the complete WASM/browser
 runtime, attests every archive and assembles a complete draft before publication. A missing target
 blocks the release. Failed uploads leave a draft. Existing published releases are never overwritten.
 
 A workflow file or configured repository is not evidence that hosted release jobs have run. Local
-verification covers packaging and trust/failure tests. An approved version tag must still pass the
-hosted native release matrix, attestations and actual publication gates.
+verification covers packaging and trust/failure tests. The owner starts the manual workflow on
+`main` with the workspace version explicitly entered. Before any build, the workflow rejects an
+incorrect branch, unauthorized initiating actor, mismatched version or existing tag. Its captured
+commit must pass the hosted native matrix, attestations and publication checks before its tag exists.
+See the [manual release steps](docs/distribution.md#manual-release).
 
 ## Consumer rollout
 

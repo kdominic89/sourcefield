@@ -119,8 +119,7 @@ fn render_prepared(prepared: &PreparedPresentation<'_>, theme: Theme, motion: bo
     let mut output = String::with_capacity(48_000);
     let width = state.canvas.width;
     let height = state.canvas.height;
-    let sx = policy.scale;
-    let sy = policy.scale;
+    let scale = policy.scale;
 
     let _ = write!(
         output,
@@ -142,7 +141,7 @@ fn render_prepared(prepared: &PreparedPresentation<'_>, theme: Theme, motion: bo
     );
 
     // Normalize decorative typography only; semantic node coordinates remain in canvas units.
-    let _ = write!(output, r#"<g transform="scale({sx} {sy})">"#);
+    let _ = write!(output, r#"<g transform="scale({scale} {scale})">"#);
     for index in 0..policy.stars {
         let x = 35 + (index * 193 + 89) % 1730;
         let y = 235 + (index * 137 + 31) % 665;
@@ -156,7 +155,7 @@ fn render_prepared(prepared: &PreparedPresentation<'_>, theme: Theme, motion: bo
     header(&mut output, state, palette);
     output.push_str("</g>");
     field(&mut output, state, nodes, palette, policy);
-    let _ = write!(output, r#"<g transform="scale({sx} {sy})">"#);
+    let _ = write!(output, r#"<g transform="scale({scale} {scale})">"#);
     publications(&mut output, state, nodes, palette, policy);
     let footer_offset = policy.footer_offset;
     let _ = write!(output, r#"<g transform="translate(0 {footer_offset})">"#);
@@ -509,8 +508,7 @@ fn departure_ports<'a>(
     domains: &[&'a Node],
     nodes: &BTreeMap<&str, &'a Node>,
 ) -> BTreeMap<(&'a str, &'a str), f64> {
-    let sx = state.canvas.width as f64 / 1800.0;
-    let sy = state.canvas.width as f64 / 1800.0;
+    let scale = state.canvas.width as f64 / 1800.0;
     let mut result = BTreeMap::new();
 
     for domain in domains
@@ -535,7 +533,7 @@ fn departure_ports<'a>(
             .into_iter()
             .map(|node| {
                 let angle =
-                    ((node.y - domain.y) as f64 / sy).atan2((node.x - domain.x) as f64 / sx);
+                    ((node.y - domain.y) as f64 / scale).atan2((node.x - domain.x) as f64 / scale);
 
                 (angle, node.id.as_str())
             })
@@ -552,7 +550,7 @@ fn departure_ports<'a>(
     result
 }
 
-/// Work in design coordinates so radial connections also match scaled elliptical ornaments.
+/// Use one width-based scale so radial connections retain the ornaments' aspect ratio.
 fn connection_path(
     from: &Node,
     to: &Node,
@@ -561,10 +559,9 @@ fn connection_path(
     bridge: bool,
     curve: OwnershipCurve,
 ) -> Option<String> {
-    let sx = state.canvas.width as f64 / 1800.0;
-    let sy = state.canvas.width as f64 / 1800.0;
-    let a = Point(from.x as f64 / sx, from.y as f64 / sy);
-    let b = Point(to.x as f64 / sx, to.y as f64 / sy);
+    let scale = state.canvas.width as f64 / 1800.0;
+    let a = Point(from.x as f64 / scale, from.y as f64 / scale);
+    let b = Point(to.x as f64 / scale, to.y as f64 / scale);
     let controls = if !bridge && matches!(curve, OwnershipCurve::Sweeping) {
         let dx = b.0 - a.0;
         let angle = (b.1 - a.1).atan2(dx);
@@ -576,12 +573,12 @@ fn connection_path(
         // Opposite endpoint turns preserve the approved organization branch sweep.
         [
             Point(
-                a.0 + (from.radius as f64 / sx + length) * source_angle.cos(),
-                a.1 + (from.radius as f64 / sx + length) * source_angle.sin(),
+                a.0 + (from.radius as f64 / scale + length) * source_angle.cos(),
+                a.1 + (from.radius as f64 / scale + length) * source_angle.sin(),
             ),
             Point(
-                b.0 - (to.radius as f64 / sx + length) * target_angle.cos(),
-                b.1 - (to.radius as f64 / sx + length) * target_angle.sin(),
+                b.0 - (to.radius as f64 / scale + length) * target_angle.cos(),
+                b.1 - (to.radius as f64 / scale + length) * target_angle.sin(),
             ),
         ]
     } else if bridge {
@@ -597,12 +594,12 @@ fn connection_path(
     };
 
     Curve::between(
-        (a, from.radius as f64 / sx),
-        (b, to.radius as f64 / sx),
+        (a, from.radius as f64 / scale),
+        (b, to.radius as f64 / scale),
         controls,
         departure,
     )
-    .map(|curve| curve.path(sx, sy))
+    .map(|curve| curve.path(scale, scale))
 }
 
 /// Assign glyph colors from declared visual roles, never from project identities.
@@ -622,8 +619,7 @@ fn node_color(node: &Node, p: Palette) -> &'static str {
 
 /// Keep ornaments inside a translated child, leaving labels stable during rotation.
 fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette) {
-    let sx = state.canvas.width as f32 / 1800.0;
-    let sy = state.canvas.width as f32 / 1800.0;
+    let scale = state.canvas.width as f32 / 1800.0;
     let actual = (node.x, node.y);
     let color = node_color(node, p);
     let domain = node.kind == NodeKind::Domain;
@@ -643,7 +639,7 @@ fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette) {
 
     let _ = write!(
         output,
-        r#"<g transform="translate({} {}) scale({sx} {sy})">"#,
+        r#"<g transform="translate({} {}) scale({scale} {scale})">"#,
         actual.0, actual.1
     );
 
@@ -652,7 +648,7 @@ fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette) {
     }
 
     let linked = open_link(output, node.url.as_deref());
-    let radius = node.radius / sx;
+    let radius = node.radius / scale;
     output.push_str(
         "<g data-node-decoration=\"true\" transform=\"translate(0 0)\" aria-hidden=\"true\">",
     );
@@ -783,16 +779,14 @@ fn publications(
         "start",
         "mono",
     );
-    let sx = state.canvas.width as f32 / 1800.0;
-    let sy = state.canvas.width as f32 / 1800.0;
 
     for (index, group) in groups.iter().enumerate() {
-        let x = group.x / sx;
+        let x = group.x / scale;
         let color = [p.blue, p.amber, p.mint][index % 3];
         let group_linked = open_link(output, group.url.as_deref());
         text(
             output,
-            (x, group.y / sy),
+            (x, group.y / scale),
             &group.label,
             18,
             color,
@@ -814,9 +808,9 @@ fn publications(
         children.sort_by(|a, b| a.y.total_cmp(&b.y).then(a.id.cmp(&b.id)));
         let mut previous = None;
         for node in &children {
-            let x = node.x / sx;
-            let y = node.y / sy;
-            let start = previous.unwrap_or(group.y / sy + 17.0);
+            let x = node.x / scale;
+            let y = node.y / scale;
+            let start = previous.unwrap_or(group.y / scale + 17.0);
 
             if start < y - 16.0 {
                 let d = format!("M{x} {start}V{}", y - 16.0);
@@ -833,8 +827,8 @@ fn publications(
                 "rotate"
             };
 
-            let x = node.x / sx - 19.0;
-            let y = node.y / sy;
+            let x = node.x / scale - 19.0;
+            let y = node.y / scale;
             let _ = write!(
                 output,
                 "<g class=\"package\" data-node-id=\"{}\" data-node-kind=\"package\" \

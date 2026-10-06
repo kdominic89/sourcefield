@@ -276,6 +276,158 @@ async function checkConnections(page, state) {
     return results;
 }
 
+/** Probe preprocessing and DOM guards through the actual profile fetch and attachment path. */
+async function checkProfileSanitization(context, base) {
+    const wrap = body => `<svg xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+    const geometry = '<rect id="svg-probe-shape" width="4" height="3" />';
+    const stylesheet = '@import url("https://example.invalid/svg-probe.css"); rect { fill: red; }';
+    const fixtures = [
+        { name: 'ordinary geometry', source: wrap(geometry), accepted: true, parses: 1 },
+        { name: 'generated CSS', source: wrap(`<style>${stylesheet}</style>${geometry}`), accepted: true, parses: 1 },
+        { name: 'multiple CSS blocks', source: wrap(`<style type="text/css">${stylesheet}</style>`
+            + `<STYLE>${stylesheet}</STYLE>${geometry}`), accepted: true, parses: 1 },
+        { name: 'event attributes', source: wrap('<g onload="globalThis.svgProbeExecuted = true">'
+            + `${geometry}</g>`), accepted: true, parses: 1 },
+        { name: 'quoted metadata and text', source: wrap('<g data-note=" > style=example">'
+            + '<text> style=example </text>' + geometry + '</g>'), accepted: true, parses: 1,
+            metadata: { note: ' > style=example', text: ' style=example ' } },
+        { name: 'inline style attribute', source: wrap('<g style="fill: red">' + geometry + '</g>'),
+            accepted: false, parses: 0 },
+        { name: 'inline style after quoted angle', source: wrap('<g data-note=">" style="fill: red">'
+            + geometry + '</g>'), accepted: false, parses: 0 },
+        { name: 'safe links and resources', source: wrap('<defs><linearGradient id="safe-gradient" /></defs>'
+            + '<a href="https://example.invalid/svg-probe-link"><rect id="svg-probe-shape" width="4"'
+            + ' fill="url(#safe-gradient)" /></a>'), accepted: true, parses: 1 },
+        { name: 'recreated style tag', source: wrap(`<sty<style>discard</style>le>${stylesheet}`
+            + '</sty<style>discard</style>le>' + geometry), accepted: false, parses: 0 },
+        { name: 'nested style tag', source: wrap(`<style><style>discard</style>${stylesheet}</style>`),
+            accepted: false, parses: 0 },
+        { name: 'unclosed style tag', source: wrap(`<style>${stylesheet}`), accepted: false, parses: 0 },
+        { name: 'self-closing style tag', source: wrap('<style />'), accepted: false, parses: 0 },
+        { name: 'unpaired closing style tag', source: wrap('</style>'), accepted: false, parses: 0 },
+        { name: 'non-style XML names', source: wrap('<stylesheet /><styleable />' + geometry),
+            accepted: true, parses: 1 },
+        { name: 'qualified style tag', source: wrap(`<s:style xmlns:s="http://www.w3.org/2000/svg">`
+            + `${stylesheet}</s:style>`), accepted: false, parses: 0 },
+        { name: 'entity declarations', source: '<!DOCTYPE svg [<!ENTITY css "&#60;style&#62;rect {}&#60;/style&#62;">]>'
+            + wrap('&css;'), accepted: false, parses: 0 },
+        { name: 'stylesheet instruction', source: '<?xml-stylesheet type="text/css"'
+            + ' href="https://example.invalid/svg-probe.css"?>' + wrap(geometry), accepted: false, parses: 0 },
+        { name: 'invalid root', source: '<html xmlns="http://www.w3.org/1999/xhtml" />',
+            accepted: false, parses: 1 },
+        { name: 'malformed XML', source: '<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>',
+            accepted: false, parses: 1, parserError: true },
+        { name: 'script', source: wrap('<script>globalThis.svgProbeExecuted = true</script>'),
+            accepted: false, parses: 1 },
+        { name: 'recreated script tag', source: wrap('<scr<style>discard</style>ipt>'
+            + 'globalThis.svgProbeExecuted = true</scr<style>discard</style>ipt>'), accepted: false, parses: 1 },
+        { name: 'foreign content', source: wrap('<foreignObject><iframe src="https://example.invalid/svg-probe" />'
+            + '</foreignObject>'), accepted: false, parses: 1 },
+        { name: 'external image', source: wrap('<image href="https://example.invalid/svg-probe.png" />'),
+            accepted: false, parses: 1 },
+        { name: 'external use', source: wrap('<use href="https://example.invalid/svg-probe.svg#shape" />'),
+            accepted: false, parses: 1 },
+        { name: 'animated mutation', source: wrap('<set attributeName="onload"'
+            + ' to="globalThis.svgProbeExecuted = true" />'), accepted: false, parses: 1 },
+        { name: 'executable link', source: wrap('<a href="javascript:globalThis.svgProbeExecuted = true">'
+            + geometry + '</a>'), accepted: false, parses: 1 },
+        { name: 'external resource', source: wrap('<rect fill="url(https://example.invalid/svg-probe.svg)" />'),
+            accepted: false, parses: 1 },
+    ];
+    const results = [];
+
+    for (const fixture of fixtures) {
+        const page = await context.newPage();
+        const errors = [];
+        const requests = [];
+        page.on('pageerror', error => errors.push(error.message));
+        page.on('console', message => {
+            if (message.type() === 'error') errors.push(message.text());
+        });
+        page.on('request', request => {
+            const url = new URL(request.url());
+            if (url.origin !== new URL(base).origin || url.pathname.includes('svg-probe')) {
+                requests.push(request.url());
+            }
+        });
+        await page.route('**/*svg-probe*', route => route.abort());
+        await page.route('**/sourcefield.*.svg', route => route.fulfill({
+            contentType: 'image/svg+xml', body: fixture.source,
+        }));
+        await page.addInitScript(() => {
+            globalThis.svgProbeExecuted = false;
+            globalThis.svgProbeParses = 0;
+            globalThis.svgProbePolicyViolations = [];
+            globalThis.svgProbeParserErrors = [];
+            const parse = DOMParser.prototype.parseFromString;
+            DOMParser.prototype.parseFromString = function (...args) {
+                globalThis.svgProbeParses++;
+                const parsed = parse.apply(this, args);
+
+                if (parsed.querySelector('parsererror')) {
+                    globalThis.svgProbeParserErrors.push({
+                        styleElements: parsed.querySelectorAll('style').length,
+                        styledElements: parsed.querySelectorAll('[style]').length,
+                    });
+                }
+
+                return parsed;
+            };
+            document.addEventListener('securitypolicyviolation', event => {
+                globalThis.svgProbePolicyViolations.push(event.violatedDirective);
+            });
+        });
+
+        try {
+            await page.goto(base);
+            await page.waitForFunction(() => document.querySelector('#profile-view svg')
+                || document.querySelector('#profile-view').textContent.includes('The field image is unavailable.'));
+            await paint(page);
+            const result = await page.evaluate(() => {
+                const svg = document.querySelector('#profile-view svg');
+                return {
+                    accepted: Boolean(svg), parses: globalThis.svgProbeParses,
+                    executed: globalThis.svgProbeExecuted, policyViolations: globalThis.svgProbePolicyViolations,
+                    parserErrors: globalThis.svgProbeParserErrors,
+                    styles: svg?.querySelectorAll('style, [style]').length ?? 0,
+                    handlers: svg ? [...svg.querySelectorAll('*')].flatMap(element => [...element.attributes])
+                        .filter(attribute => attribute.localName.toLowerCase().startsWith('on')).length : 0,
+                    width: svg?.querySelector('#svg-probe-shape')?.getAttribute('width') ?? null,
+                    metadata: {
+                        note: svg?.querySelector('[data-note]')?.getAttribute('data-note') ?? null,
+                        text: svg?.querySelector('text')?.textContent ?? null,
+                    },
+                };
+            });
+
+            assert.equal(result.accepted, fixture.accepted, fixture.name);
+            assert.equal(result.parses, fixture.parses, fixture.name);
+            assert.equal(result.executed, false, fixture.name);
+            if (fixture.parserError) {
+                assert.equal(result.parserErrors.length, 1, fixture.name);
+                // Chromium's XML diagnostic document carries built-in styles; the host still rejects it.
+                assert.ok(result.parserErrors[0].styleElements + result.parserErrors[0].styledElements > 0);
+                assert.ok(result.policyViolations.every(value => ['style-src-elem', 'style-src-attr'].includes(value)));
+                assert.ok(errors.every(value => value.includes('Applying inline style violates')));
+            } else {
+                assert.deepEqual(result.parserErrors, [], fixture.name);
+                assert.deepEqual(result.policyViolations, [], fixture.name);
+                assert.deepEqual(errors, [], fixture.name);
+            }
+            assert.deepEqual(requests, [], fixture.name);
+            assert.equal(result.styles, 0, fixture.name);
+            assert.equal(result.handlers, 0, fixture.name);
+            assert.deepEqual(result.metadata, fixture.metadata ?? { note: null, text: null }, fixture.name);
+            if (fixture.accepted) assert.equal(result.width, '4', fixture.name);
+            results.push({ name: fixture.name, ...result, errors, requests });
+        } finally {
+            await page.close();
+        }
+    }
+
+    return results;
+}
+
 /**
  * Verify approved field geometry and animation behavior through theme and motion transitions.
  * @param {{browser: import('playwright').Browser, base: string, output: string}} options Runtime and artifact location.
@@ -300,7 +452,10 @@ export async function runFieldChecks({ browser, base, output }) {
         const stateResponse = await page.request.get(new URL('profile-state.json', base).href);
         assert.equal(stateResponse.ok(), true);
         const state = await stateResponse.json();
-        const result = { dark: await checkMotion(page, state), connections: await checkConnections(page, state) };
+        const result = {
+            dark: await checkMotion(page, state), connections: await checkConnections(page, state),
+            sanitization: await checkProfileSanitization(context, base),
+        };
         const before = await geometry(page);
 
         await paint(page);

@@ -643,3 +643,123 @@ test('history rejects a forged selection without requesting its path', async () 
     assert.deepEqual(paths, ['./history/index.json']);
     assert.equal(harness.elements.get('#state-label').textContent, 'SNAPSHOT UNAVAILABLE');
 });
+
+/** Observe the XML parser boundary without treating the stub as SVG validation. */
+async function profileHarness(source) {
+    const harness = await browserHarness();
+    const parses = [];
+    const svg = { localName: 'svg', attributes: [], querySelectorAll: () => [] };
+    harness.context.source = source;
+    harness.context.DOMParser = class {
+        parseFromString(markup, type) {
+            parses.push({ markup, type });
+            return { documentElement: svg, querySelector: () => null };
+        }
+    };
+    harness.context.document.importNode = node => node;
+
+    return { ...harness, parses, svg };
+}
+
+for (const [name, source, expected] of [
+    ['ordinary geometry', '<svg><rect width="4" /></svg>', '<svg><rect width="4" /></svg>'],
+    ['generated CSS', '<svg><style>rect { fill: red; }</style><rect /></svg>', '<svg><rect /></svg>'],
+    ['multiple CSS blocks', '<svg><style type="text/css">a {}</style><STYLE>rect {}</STYLE></svg>', '<svg></svg>'],
+    ['CSS CDATA', '<svg><style><![CDATA[rect { fill: red; }]]></style><rect /></svg>', '<svg><rect /></svg>'],
+    ['text mentioning style', '<svg><text> style=example </text></svg>', '<svg><text> style=example </text></svg>'],
+    ['quoted metadata', '<svg data-note=" > style=example" />', '<svg data-note=" > style=example" />'],
+]) {
+    test(`profile preprocessing preserves ${name} with one XML parse`, async () => {
+        const harness = await profileHarness(source);
+
+        const svg = harness.evaluate('parseProfileSvg(source)');
+
+        assert.equal(svg, harness.svg);
+        assert.deepEqual(harness.parses, [{ markup: expected, type: 'image/svg+xml' }]);
+    });
+}
+
+for (const [name, body] of [
+    ['recreated style tag', '<sty<style>discard</style>le>rect { fill: red; }</sty<style>discard</style>le>'],
+    ['nested style tag', '<style><style>discard</style>rect { fill: red; }</style>'],
+    ['unclosed style tag', '<style>rect { fill: red; }'],
+    ['unpaired closing style tag', '</style>'],
+    ['Unicode-qualified style tag', '<\u03c0:style>rect {}</\u03c0:style>'],
+    ['self-closing style tag', '<style />'],
+    ['qualified style tag', '<s:style xmlns:s="http://www.w3.org/2000/svg">rect {}</s:style>'],
+    ['qualified uppercase style tag', '<s:STYLE xmlns:s="http://www.w3.org/2000/svg">rect {}</s:STYLE>'],
+    ['stylesheet instruction', '<?xml-stylesheet type="text/css" href="https://example.invalid/probe.css"?>'],
+    ['inline style attribute', '<rect style="fill: red" />'],
+    ['qualified style attribute', '<rect s:style="fill: red" xmlns:s="http://www.w3.org/2000/svg" />'],
+    ['style attribute after a quoted angle', '<rect data-note=">" style="fill: red" />'],
+    ['single-quoted style attribute', "<rect style='fill: red' />"],
+    ['multiline style attribute', '<rect\nstyle\t=\n"fill: red" />'],
+]) {
+    test(`profile preprocessing rejects ${name} before XML parsing`, async () => {
+        const harness = await profileHarness(`<svg>${body}</svg>`);
+        let failure;
+
+        try {
+            harness.evaluate('parseProfileSvg(source)');
+        } catch (error) {
+            failure = error.message;
+        }
+
+        assert.equal(failure, 'Invalid profile SVG');
+        assert.deepEqual(harness.parses, []);
+    });
+}
+
+test('profile preprocessing rejects entity declarations before XML parsing', async () => {
+    const harness = await profileHarness(
+        '<!DOCTYPE svg [<!ENTITY css "&#60;style&#62;rect {}&#60;/style&#62;">]><svg>&css;</svg>',
+    );
+    let failure;
+
+    try {
+        harness.evaluate('parseProfileSvg(source)');
+    } catch (error) {
+        failure = error.message;
+    }
+
+    assert.equal(failure, 'Invalid profile SVG');
+    assert.deepEqual(harness.parses, []);
+});
+
+for (const [name, body] of [
+    ['unclosed tags', '<style>'.repeat(50000)], ['unterminated tags', '<style '.repeat(50000)],
+]) {
+    test(`profile preprocessing rejects 50000 ${name} before parsing`, async () => {
+        const harness = await profileHarness(`<svg>${body}</svg>`);
+        let failure;
+
+        try {
+            harness.evaluate('parseProfileSvg(source)');
+        } catch (error) {
+            failure = error.message;
+        }
+
+        assert.equal(failure, 'Invalid profile SVG');
+        assert.deepEqual(harness.parses, []);
+    });
+}
+
+test('profile preprocessing preserves geometry across 10000 independent CSS blocks', async () => {
+    const harness = await profileHarness(`<svg>${'<style>rect {}</style><rect />'.repeat(10000)}</svg>`);
+
+    harness.evaluate('parseProfileSvg(source)');
+
+    assert.equal(harness.parses.length, 1);
+    assert.equal(harness.parses[0].markup, `<svg>${'<rect />'.repeat(10000)}</svg>`);
+});
+
+for (const body of ['<stylesheet />', '<styleable />', '<s:stylesheet xmlns:s="http://www.w3.org/2000/svg" />']) {
+    test(`profile preprocessing preserves non-style XML names: ${body}`, async () => {
+        const source = `<svg>${body}</svg>`;
+        const harness = await profileHarness(source);
+
+        harness.evaluate('parseProfileSvg(source)');
+
+        assert.deepEqual(harness.parses, [{ markup: source, type: 'image/svg+xml' }]);
+    });
+}

@@ -285,13 +285,15 @@ where
 
     let mode = ExecutionMode::from_flags(offline, locked, strict_live)?;
 
+    let assets_relative = relative_output(root, assets_dir)?;
+    let docs_relative = relative_output(root, docs_dir)?;
+    let mut transaction = Transaction::begin(root)?;
+
+    // Recovery can restore replay inputs; verify and consume them under this same writer lock.
     if mode.is_replay() {
         verify_replay_inputs(config_path, assets_dir)?;
     }
 
-    let assets_relative = relative_output(root, assets_dir)?;
-    let docs_relative = relative_output(root, docs_dir)?;
-    let mut transaction = Transaction::begin(root)?;
     let authored = load_config(config_path).context("load profile configuration")?;
     let previous =
         optional_json::<sourcefield_core::LayoutAssignments>(&assets_dir.join("layout.json"))?
@@ -1080,14 +1082,14 @@ struct GenerationRecord {
     inputs: BTreeMap<String, String>,
 }
 
-/// Reject configuration drift and tampered snapshots before starting a replay transaction.
+/// Reject configuration drift and tampered snapshots after recovery under the held transaction lock.
+/// The caller must retain that lock until the verified inputs have been consumed and published.
 fn verify_replay_inputs(config: &Path, assets: &Path) -> Result<()> {
     let record: GenerationRecord = read_json(&assets.join("generation-record.json"))?;
 
     if record.schema_version != 1
         || record.generator_version != env!("CARGO_PKG_VERSION")
-        || record.source_revision
-            != option_env!("SOURCEFIELD_SOURCE_COMMIT").unwrap_or("unreleased")
+        || record.source_revision != env!("SOURCEFIELD_SOURCE_COMMIT")
         || record.generator_fingerprint != env!("SOURCEFIELD_GENERATOR_FINGERPRINT")
         || record.authored_config_sha256 != file_sha256(config)?
         || record.inputs.len() != REPLAY_FILES.len()

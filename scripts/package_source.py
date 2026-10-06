@@ -37,6 +37,9 @@ ROOT_FILES = {
     "PACKAGE-INFO.md",
     ".cargo/config.toml",
     ".github/dependabot.yml",
+    "tools/wasm-pack-version.txt",
+    "tools/browser/package.json",
+    "tools/browser/package-lock.json",
 }
 
 TREE_TYPES = {

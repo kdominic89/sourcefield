@@ -21,6 +21,7 @@ const INPUTS: &[&str] = &[
     "crates/sourcefield-core/src/model.rs",
     "Cargo.lock",
     "rust-toolchain.toml",
+    "tools/wasm-pack-version.txt",
 ];
 
 /// Fingerprint source rather than filesystem metadata so clean checkouts agree.

@@ -78,15 +78,23 @@ struct LockGuard {
 }
 
 impl LockGuard {
+    /// Create an exclusive owner token, distinguishing contention from filesystem failures.
     fn acquire(root: &Path) -> Result<Self> {
         let path = root.join(LOCK);
         let mut file = OpenOptions::new()
             .create_new(true)
             .write(true)
             .open(&path)
-            .context(
-                "workspace is locked; inspect the owner before recovering an abandoned lock",
-            )?;
+            .map_err(|error| {
+                if error.kind() == std::io::ErrorKind::AlreadyExists {
+                    anyhow::Error::new(error).context(
+                        "workspace is locked; inspect the owner before recovering an abandoned lock",
+                    )
+                } else {
+                    anyhow::Error::new(error)
+                        .context(format!("create workspace lock {}", path.display()))
+                }
+            })?;
 
         let token = format!(
             "{}:{}",
@@ -111,6 +119,7 @@ impl Drop for LockGuard {
 
 impl Transaction {
     /// Acquire the root lock and create an empty candidate after recovering prior work.
+    /// Validate and consume input files only after this returns, retaining the transaction lock.
     /// The root must resolve through real directories or recognized OS-owned temporary aliases.
     pub fn begin(root: impl AsRef<Path>) -> Result<Self> {
         let root = checked_workspace_root(root.as_ref())?;
@@ -951,6 +960,38 @@ mod tests {
 
         assert!(writer.is_err());
         assert!(recovery.is_err());
+    }
+
+    #[test]
+    fn existing_lock_reports_contention_and_preserves_owner() {
+        let root = TestRoot::new();
+        let _owner = LockGuard::acquire(&root.0).unwrap();
+        let token = fs::read(root.0.join(LOCK)).unwrap();
+
+        let error = LockGuard::acquire(&root.0).unwrap_err();
+
+        assert!(error.to_string().contains("workspace is locked"));
+        assert_eq!(
+            error.downcast_ref::<std::io::Error>().unwrap().kind(),
+            std::io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(fs::read(root.0.join(LOCK)).unwrap(), token);
+    }
+
+    #[test]
+    fn missing_lock_directory_reports_creation_failure_with_os_cause() {
+        let root = TestRoot::new();
+        let missing = root.0.join("missing");
+
+        let error = LockGuard::acquire(&missing).unwrap_err();
+
+        assert!(error.to_string().contains("create workspace lock"));
+        assert!(!error.to_string().contains("workspace is locked"));
+        assert_eq!(
+            error.downcast_ref::<std::io::Error>().unwrap().kind(),
+            std::io::ErrorKind::NotFound
+        );
+        assert!(!missing.exists());
     }
 
     #[test]

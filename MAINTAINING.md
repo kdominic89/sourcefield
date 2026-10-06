@@ -63,11 +63,17 @@ private vulnerability reporting is enabled, check its actual availability before
 Keep the README quickstart executable from a clean checkout and a new temporary directory.
 
 The three SVGs in `docs/preview/` are intentional documentation assets generated from the synthetic
-`config/profile.toml` and `config/offline-snapshot.json`. To refresh them, run the README quickstart,
-then copy `sourcefield.dark.svg`, `sourcefield.light.svg` and `sourcefield.static.svg` from the generated
-`assets/` directory into `docs/preview/`. Encode non-ASCII text as XML numeric character references to keep the checked-in SVGs ASCII
-without changing their rendered text. Inspect both themes and reduced motion. Do not copy runtime
-WASM, captures or transaction files into the documentation assets.
+`config/profile.toml` and `config/offline-snapshot.json`. The native all-targets tests compare their
+complete bytes with the current renderer, using a fixed timestamp and XML numeric character
+references for non-ASCII text. To refresh all three after an intentional change, run:
+
+```sh
+cargo run --locked -p sourcefield-cli --example documentation_previews -- --write
+```
+
+Omit `--write` to check freshness without modifying the files. Review all three SVG diffs and inspect
+both themes and reduced motion. Do not copy runtime WASM, captures or transaction files into the
+documentation assets.
 
 Before an actual release, review Unreleased in CHANGELOG.md and move the shipped entries to the
 matching version and publication date. Keep unreleased work separate. Do not rewrite the changelog

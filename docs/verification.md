@@ -5,6 +5,9 @@ Node browser tests, rustfmt, all-target compilation, WASM compilation, native/do
 warnings denied and public/private API documentation. Build WASM first with the pinned packager when
 verifying a release runtime. Tests must use synthetic content inside temporary consumer roots.
 
+The native all-targets tests also compare the three checked-in README previews against a fresh
+render of the fixed synthetic inputs. The explicit refresh command is documented in
+[MAINTAINING.md](../MAINTAINING.md). A stale or missing preview fails verification.
 The shared byte-reader tests separately enforce content/size limits and the retained allocation
 budget documented in [sourcefield-io](../crates/sourcefield-io/README.md). That budget is measured
 against the pinned toolchain; it is not a claim about exact standard-library allocation behavior.

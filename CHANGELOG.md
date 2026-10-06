@@ -35,6 +35,7 @@ version tag, downloadable artifact or hosted deployment exists.
 - Verify replay provenance after recovery under the workspace lock and distinguish lock contention
   from filesystem errors.
 - Keep collector version identification current and loopback HTTP support confined to tests.
+- Verify documentation previews against the renderer.
 - Diagnose yanked tool pins explicitly while retaining reviewed updates and downgrade protection.
 - Check byte-reader correctness and a retained allocation budget without requiring exact Vec capacity.
 

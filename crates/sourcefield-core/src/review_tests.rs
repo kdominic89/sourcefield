@@ -301,3 +301,267 @@ fn package_id_length_boundary_is_explicit() {
     // Assert
     assert_eq!(actual, (true, false));
 }
+
+/// Keep each regression focused on one component while retaining valid fixture references.
+fn component_relation_config(integrates: &[&str], targets: &[&str]) -> (Config, String) {
+    let mut value = config();
+    let project = &mut value.projects[0];
+    let component = &mut project.components[0];
+    component.integrates = integrates.iter().map(|value| (*value).into()).collect();
+    component.targets = targets.iter().map(|value| (*value).into()).collect();
+    let component_id = format!("component:{}:{}", project.id, component.id);
+
+    (value, component_id)
+}
+
+#[test]
+fn component_relations_preserve_integrates_only() {
+    // Arrange
+    let (value, component_id) = component_relation_config(&["rust"], &[]);
+    let source = snapshot();
+
+    // Act
+    let result = build_state(&value, &source, "test");
+
+    // Assert
+    let state = result.unwrap();
+    let edges = state
+        .edges
+        .iter()
+        .filter(|edge| edge.to == component_id && edge.from == "technology:rust")
+        .collect::<Vec<_>>();
+    assert_eq!(edges.len(), 1);
+    assert_eq!(edges[0].kind, EdgeKind::Integrates);
+    assert_eq!(edges[0].weight, 0.25);
+    assert!(!edges[0].show_in_readme);
+}
+
+#[test]
+fn component_relations_preserve_targets_only() {
+    // Arrange
+    let (value, component_id) = component_relation_config(&[], &["rust"]);
+    let source = snapshot();
+
+    // Act
+    let result = build_state(&value, &source, "test");
+
+    // Assert
+    let state = result.unwrap();
+    let edges = state
+        .edges
+        .iter()
+        .filter(|edge| edge.to == component_id && edge.from == "technology:rust")
+        .collect::<Vec<_>>();
+    assert_eq!(edges.len(), 1);
+    assert_eq!(edges[0].kind, EdgeKind::Targets);
+    assert_eq!(edges[0].weight, 0.25);
+    assert!(!edges[0].show_in_readme);
+}
+
+#[test]
+fn component_relations_preserve_both_kinds_for_shared_endpoints() {
+    // Arrange
+    let (value, component_id) = component_relation_config(&["rust"], &["rust"]);
+    let source = snapshot();
+
+    // Act
+    let result = build_state(&value, &source, "test");
+
+    // Assert
+    let state = result.unwrap();
+    let edges = state
+        .edges
+        .iter()
+        .filter(|edge| edge.to == component_id && edge.from == "technology:rust")
+        .collect::<Vec<_>>();
+    assert_eq!(edges.len(), 2);
+    assert_eq!(
+        edges
+            .iter()
+            .filter(|edge| edge.kind == EdgeKind::Integrates)
+            .count(),
+        1
+    );
+    assert_eq!(
+        edges
+            .iter()
+            .filter(|edge| edge.kind == EdgeKind::Targets)
+            .count(),
+        1
+    );
+    assert!(
+        edges
+            .iter()
+            .all(|edge| edge.weight == 0.25 && !edge.show_in_readme)
+    );
+}
+
+#[test]
+fn component_relations_reject_repeated_entries_within_each_kind() {
+    // Arrange
+    let cases = [
+        (
+            component_relation_config(&["rust", "csharp", "rust"], &[]).0,
+            "integrates",
+        ),
+        (
+            component_relation_config(&[], &["rust", "csharp", "rust"]).0,
+            "targets",
+        ),
+    ];
+    let source = snapshot();
+
+    // Act
+    let results = cases.map(|(value, relation)| (build_state(&value, &source, "test"), relation));
+
+    // Assert
+    for (result, relation) in results {
+        let error = result.expect_err("one relation cannot repeat its technology endpoint");
+        assert!(matches!(
+            error,
+            GraphError::Validation(ValidationError::InvalidValue(_))
+        ));
+        let message = error.to_string();
+        assert!(message.contains(relation), "{message}");
+        assert!(message.contains("rust"), "{message}");
+    }
+}
+
+#[test]
+fn project_relations_preserve_all_kinds_for_shared_endpoints() {
+    // Arrange
+    let mut value = config();
+    let project = &mut value.projects[0];
+    project.implemented_with = vec!["rust".into()];
+    project.integrates = vec!["rust".into()];
+    project.targets = vec!["rust".into()];
+    let project_id = format!("project:{}", project.id);
+    let source = snapshot();
+
+    // Act
+    let result = build_state(&value, &source, "test");
+
+    // Assert
+    let state = result.unwrap();
+    let kinds = state
+        .edges
+        .iter()
+        .filter(|edge| edge.to == project_id && edge.from == "technology:rust")
+        .map(|edge| edge.kind)
+        .collect::<Vec<_>>();
+    assert_eq!(kinds.len(), 3);
+    assert!(kinds.contains(&EdgeKind::ImplementedWith));
+    assert!(kinds.contains(&EdgeKind::Integrates));
+    assert!(kinds.contains(&EdgeKind::Targets));
+}
+
+#[test]
+fn project_relations_reject_repeated_entries_within_each_kind() {
+    // Arrange
+    let cases = ["implemented_with", "integrates", "targets"].map(|relation| {
+        let mut value = config();
+        let project = &mut value.projects[0];
+        let technologies = match relation {
+            "implemented_with" => &mut project.implemented_with,
+            "integrates" => &mut project.integrates,
+            _ => &mut project.targets,
+        };
+        *technologies = vec!["rust".into(), "csharp".into(), "rust".into()];
+
+        (value, relation)
+    });
+    let source = snapshot();
+
+    // Act
+    let results = cases.map(|(value, relation)| (build_state(&value, &source, "test"), relation));
+
+    // Assert
+    for (result, relation) in results {
+        let error = result.expect_err("one relation cannot repeat its technology endpoint");
+        assert!(matches!(
+            error,
+            GraphError::Validation(ValidationError::InvalidValue(_))
+        ));
+        let message = error.to_string();
+        assert!(message.contains(relation), "{message}");
+        assert!(message.contains("rust"), "{message}");
+    }
+}
+
+#[test]
+fn component_relations_still_reject_unknown_technologies_in_each_kind() {
+    // Arrange
+    let cases = [
+        component_relation_config(&["missing-technology"], &[]).0,
+        component_relation_config(&[], &["missing-technology"]).0,
+    ];
+
+    // Act
+    let results = cases.map(|value| validate_config(&value));
+
+    // Assert
+    for result in results {
+        assert!(matches!(
+            result,
+            Err(ValidationError::UnknownTechnology { technology, .. })
+                if technology == "missing-technology"
+        ));
+    }
+}
+
+#[test]
+fn interests_remain_in_graph_when_readme_visibility_is_disabled() {
+    // Arrange
+    let mut value = config();
+    value.render.show_interests_in_readme = false;
+    let expected_ids = value
+        .interests
+        .iter()
+        .map(|interest| format!("interest:{}", interest.id))
+        .collect::<Vec<_>>();
+    let source = snapshot();
+
+    // Act
+    let result = build_state(&value, &source, "test");
+
+    // Assert
+    let state = result.unwrap();
+    let interests = state
+        .nodes
+        .iter()
+        .filter(|node| node.kind == NodeKind::Interest)
+        .collect::<Vec<_>>();
+    assert!(!expected_ids.is_empty());
+    assert_eq!(interests.len(), expected_ids.len());
+    assert!(
+        expected_ids
+            .iter()
+            .all(|id| interests.iter().any(|node| &node.id == id))
+    );
+    assert!(interests.iter().all(|node| !node.show_in_readme));
+}
+
+#[test]
+fn interests_respect_individual_visibility_when_readme_visibility_is_enabled() {
+    // Arrange
+    let mut value = config();
+    value.render.show_interests_in_readme = true;
+    value.interests[0].show_in_readme = false;
+    value.interests[1].show_in_readme = true;
+    let expected = value
+        .interests
+        .iter()
+        .map(|interest| (format!("interest:{}", interest.id), interest.show_in_readme))
+        .collect::<Vec<_>>();
+    let source = snapshot();
+
+    // Act
+    let result = build_state(&value, &source, "test");
+
+    // Assert
+    let state = result.unwrap();
+    for (id, visible) in expected {
+        let node = state.nodes.iter().find(|node| node.id == id).unwrap();
+        assert_eq!(node.show_in_readme, visible);
+    }
+}

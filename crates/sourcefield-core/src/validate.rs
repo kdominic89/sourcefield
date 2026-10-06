@@ -270,13 +270,12 @@ pub fn validate_config(config: &Config) -> Result<(), ValidationError> {
             }
         }
 
-        for technology in project
-            .implemented_with
-            .iter()
-            .chain(&project.integrates)
-            .chain(&project.targets)
-        {
-            technology_reference(&technologies, technology, &project.id)?;
+        for (references, relation) in [
+            (&project.implemented_with, "implemented_with"),
+            (&project.integrates, "integrates"),
+            (&project.targets, "targets"),
+        ] {
+            technology_references(&technologies, references, &project.id, relation)?;
         }
 
         for component in &project.components {
@@ -284,8 +283,11 @@ pub fn validate_config(config: &Config) -> Result<(), ValidationError> {
                 &mut ids,
                 &format!("component:{}:{}", project.id, component.id),
             )?;
-            for technology in component.integrates.iter().chain(&component.targets) {
-                technology_reference(&technologies, technology, &component.id)?;
+            for (references, relation) in [
+                (&component.integrates, "integrates"),
+                (&component.targets, "targets"),
+            ] {
+                technology_references(&technologies, references, &component.id, relation)?;
             }
         }
     }
@@ -534,6 +536,28 @@ fn domain_reference(
             domain: domain.into(),
             owner: owner.into(),
         });
+    }
+
+    Ok(())
+}
+
+/// Shared endpoints across relation kinds are valid; repeats within one kind are not.
+fn technology_references(
+    technologies: &BTreeSet<&str>,
+    references: &[String],
+    owner: &str,
+    relation: &str,
+) -> Result<(), ValidationError> {
+    let mut seen = BTreeSet::new();
+
+    for technology in references {
+        technology_reference(technologies, technology, owner)?;
+
+        if !seen.insert(technology.as_str()) {
+            return Err(ValidationError::InvalidValue(format!(
+                "duplicate {relation} technology '{technology}' referenced by {owner}"
+            )));
+        }
     }
 
     Ok(())

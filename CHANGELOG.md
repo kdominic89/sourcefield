@@ -31,6 +31,7 @@ version tag, downloadable artifact or hosted deployment exists.
 - Keep wasm-pack in one authoritative pin with a bounded weekly registry check and reviewed update command.
 - Cover Rust toolchain and locked Playwright npm updates through Dependabot while preserving browser sandboxing.
 - Reject recreated SVG styles and inline style attributes before XML parsing, with adversarial browser regressions.
+- Preserve distinct component integration and target edges and reject duplicate relation entries.
 - Verify replay provenance after recovery under the workspace lock and distinguish lock contention
   from filesystem errors.
 - Diagnose yanked tool pins explicitly while retaining reviewed updates and downgrade protection.

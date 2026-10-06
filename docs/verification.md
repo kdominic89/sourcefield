@@ -5,6 +5,16 @@ Node browser tests, rustfmt, all-target compilation, WASM compilation, native/do
 warnings denied and public/private API documentation. Build WASM first with the pinned packager when
 verifying a release runtime. Tests must use synthetic content inside temporary consumer roots.
 
+Python syntax checks include nested packages under `scripts/` and `tests/`. The portable distribution
+suite is selected with `test_distribution*.py` so splitting a test module cannot omit its cases from
+macOS/Windows CI. Those jobs also run the shared artifact, strict transport and source-archive/entrypoint
+checks. The four actual Bash dispatch-guard tests and POSIX syntax fixtures are explicitly skipped
+on Windows; portable version/preflight and workflow-wiring tests still run there. This avoids resolving
+Windows' WSL launcher through a bare Bash name when the tests require POSIX shell execution.
+Shared artifact and presentation functions use normal imports from `scripts/sourcefield_tools`;
+the workflow-facing browser gate does not load test modules.
+Unknown commands fail in transport doubles, while archives, digests and filesystem checks remain real.
+
 The native all-targets tests also compare the three checked-in README previews against a fresh
 render of the fixed synthetic inputs. The explicit refresh command is documented in
 [MAINTAINING.md](../MAINTAINING.md). A stale or missing preview fails verification.
@@ -70,6 +80,14 @@ The supplemental standard-library validator uses `assets/resolved-config.json` f
 package authority. It checks SVG safety in presentation contexts, accessible text, paired state,
 README links and local resources; it does not authenticate remote imports or replace native validation.
 The browser fixture gate runs both validators and geometry checks on actual generated artifacts.
+
+Add `--workflow-root CONSUMER` to check consumer workflow source controls against the current
+`docs/consumer-workflow.yml.template` contract. The update workflow must reference the reusable
+Sourcefield generator exactly once at a full commit SHA; present remote action references must also
+be immutable. An additional `validate.yml` is checked when present. Historical `configure-pages` and
+`PROFILE_TOKEN` entries are permitted but are not required by the current template. This option checks
+source conventions, not hosted execution, release authentication or lock equality; use `check_pin.py`
+for the latter. Existing older consumer-local validator copies are not upgraded by this tooling change.
 
 For local image review with an already installed Chrome/Chromium:
 

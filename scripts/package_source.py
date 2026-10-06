@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import shutil
 import tempfile
 import zipfile
 from pathlib import Path
+
+from sourcefield_tools.artifacts import digest_file, zip_info
 
 ROOT_FILES = {
     "Cargo.toml",
@@ -120,27 +121,6 @@ def source_files(root: Path) -> list[Path]:
                     selected.append(path)
 
     return sorted(selected, key=lambda path: path.relative_to(root).as_posix())
-
-
-def digest_file(path: Path) -> str:
-    """Hash in bounded memory, including archives larger than available RAM."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-
-    return digest.hexdigest()
-
-
-def zip_info(name: str, executable: bool = False) -> zipfile.ZipInfo:
-    """Normalize timestamps and permissions instead of inheriting host metadata."""
-    info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
-    info.create_system = 3
-    info.external_attr = (0o100755 if executable else 0o100644) << 16
-    # Stored entries avoid compressor-version drift across build hosts.
-    info.compress_type = zipfile.ZIP_STORED
-
-    return info
 
 
 def package(root: Path, output: Path) -> str:

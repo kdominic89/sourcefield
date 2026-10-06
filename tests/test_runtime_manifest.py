@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import re
 from pathlib import Path
@@ -10,12 +9,9 @@ import shutil
 import tempfile
 import unittest
 
-SPEC = importlib.util.spec_from_file_location(
-    "runtime_manifest", Path(__file__).resolve().parents[1] / "scripts/runtime_manifest.py"
-)
-assert SPEC and SPEC.loader
-MANIFEST = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(MANIFEST)
+# Bootstrap uninstalled tooling so discovery and direct execution share module identities.
+import support
+import runtime_manifest as MANIFEST
 
 
 class RuntimeManifestTests(unittest.TestCase):

@@ -7,22 +7,18 @@ import tomllib
 import zipfile
 from pathlib import Path
 
-from bootstrap_release import TARGETS, digest_file, read_lock
+from sourcefield_tools.artifacts import digest_file
+from sourcefield_tools.release import AssetIdentity, ReleaseLock, TARGETS, read_lock, release_metadata
 
 
 def manifest(directory: Path, source_commit: str, release: str) -> Path:
     """Reject mixed-source or incomplete assets before constructing a consumable lock."""
-    assets = {}
+    assets: dict[str, AssetIdentity] = {}
     for target in sorted(set(TARGETS.values()) | {"browser"}):
         archive = directory / f"sourcefield-{target}.zip"
         with zipfile.ZipFile(archive) as bundle:
             metadata = json.loads(bundle.read("release-metadata.json"))
-            if metadata != {
-                "schema_version": 1,
-                "source_commit": source_commit,
-                "release": release,
-                "target": target,
-            }:
+            if metadata != release_metadata(source_commit, release, target):
                 raise ValueError(f"release metadata mismatch: {target}")
 
             if bundle.testzip() is not None:
@@ -30,7 +26,7 @@ def manifest(directory: Path, source_commit: str, release: str) -> Path:
 
         assets[target] = {"name": archive.name, "sha256": digest_file(archive)}
 
-    lock = {
+    lock: ReleaseLock = {
         "schema_version": 1,
         "repository": "kdominic89/sourcefield",
         "source_commit": source_commit,

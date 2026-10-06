@@ -10,8 +10,9 @@ import shutil
 import zipfile
 from pathlib import Path
 
-from package_source import digest_file, zip_info
 from runtime_manifest import RUNTIME_FILES
+from sourcefield_tools.artifacts import digest_file, zip_info
+from sourcefield_tools.release import release_metadata
 
 
 def package(
@@ -75,12 +76,7 @@ def package(
 
     output.mkdir(parents=True, exist_ok=True)
     archive = output / f"sourcefield-{target}.zip"
-    metadata = {
-        "schema_version": 1,
-        "source_commit": source_commit,
-        "release": release,
-        "target": target,
-    }
+    metadata = release_metadata(source_commit, release, target)
 
     with zipfile.ZipFile(archive, "w") as bundle:
         for path, name in sorted(entries, key=lambda entry: entry[1]):

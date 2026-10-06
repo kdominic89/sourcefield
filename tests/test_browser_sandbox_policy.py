@@ -9,8 +9,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-sys.path.insert(0, str(SCRIPTS))
+# Bootstrap uninstalled tooling so discovery and direct execution share module identities.
+from support import SCRIPTS
 import browser_sandbox_policy
 
 
@@ -57,16 +57,30 @@ class BrowserSandboxPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must be absolute"):
                 browser_sandbox_policy.render_policy(relative)
 
-    def test_noncanonical_aliases_are_rejected(self):
+    def assert_noncanonical_alias_rejected(self, template: str) -> None:
+        """Probe one alternate spelling of a real executable under a canonical temporary root."""
+        # Arrange
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
             executable = executable_file(root)
             (root / "nested").mkdir()
-            aliases = [f"{root}/nested/../chrome", f"{root}/./chrome", f"/{executable}"]
+            alias = template.format(root=root, executable=executable)
 
-            for alias in aliases:
-                with self.subTest(alias=alias), self.assertRaisesRegex(ValueError, "must be canonical"):
-                    browser_sandbox_policy.render_policy(alias)
+            # Act / Assert
+            with self.assertRaisesRegex(ValueError, "must be canonical"):
+                browser_sandbox_policy.render_policy(alias)
+
+    def test_rejects_noncanonical_alias_parent_traversal(self):
+        """Reject a parent-traversal spelling of the real executable."""
+        self.assert_noncanonical_alias_rejected('{root}/nested/../chrome')
+
+    def test_rejects_noncanonical_alias_current_directory_segment(self):
+        """Reject an explicit current-directory segment in the executable path."""
+        self.assert_noncanonical_alias_rejected('{root}/./chrome')
+
+    def test_rejects_noncanonical_alias_duplicate_leading_separator(self):
+        """Reject an additional leading separator in the executable path."""
+        self.assert_noncanonical_alias_rejected('/{executable}')
 
     def test_symlink_to_executable_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -112,28 +126,84 @@ class BrowserSandboxPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "cannot inspect browser executable"):
                 browser_sandbox_policy.render_policy(str(missing))
 
-    def test_policy_metacharacters_in_real_file_names_are_rejected(self):
-        characters = "*?[]{}@$\"'\\"
-
+    def assert_unsafe_filename_rejected(self, character: str) -> None:
+        """Create one real filename containing a disallowed policy character before rendering it."""
+        # Arrange
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
-            for character in characters:
-                executable = executable_file(root, f"chrome{character}")
+            executable = executable_file(root, f"chrome{character}")
 
-                with self.subTest(character=character), self.assertRaisesRegex(ValueError, "unsafe policy characters"):
-                    browser_sandbox_policy.render_policy(str(executable))
+            # Act / Assert
+            with self.assertRaisesRegex(ValueError, "unsafe policy characters"):
+                browser_sandbox_policy.render_policy(str(executable))
 
-    def test_control_and_unicode_file_names_are_rejected(self):
-        characters = ["\n", "\r", "\t", "\x01", "\x7f", "\u00e9"]
+    def test_rejects_policy_metacharacter_asterisk(self):
+        """Reject an asterisk in a real executable filename."""
+        self.assert_unsafe_filename_rejected('*')
 
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary).resolve()
-            for character in characters:
-                executable = executable_file(root, f"chrome{character}")
+    def test_rejects_policy_metacharacter_question_mark(self):
+        """Reject a question mark in a real executable filename."""
+        self.assert_unsafe_filename_rejected('?')
 
-                with self.subTest(character=repr(character)):
-                    with self.assertRaisesRegex(ValueError, "unsafe policy characters"):
-                        browser_sandbox_policy.render_policy(str(executable))
+    def test_rejects_policy_metacharacter_opening_bracket(self):
+        """Reject an opening bracket in a real executable filename."""
+        self.assert_unsafe_filename_rejected('[')
+
+    def test_rejects_policy_metacharacter_closing_bracket(self):
+        """Reject a closing bracket in a real executable filename."""
+        self.assert_unsafe_filename_rejected(']')
+
+    def test_rejects_policy_metacharacter_opening_brace(self):
+        """Reject an opening brace in a real executable filename."""
+        self.assert_unsafe_filename_rejected('{')
+
+    def test_rejects_policy_metacharacter_closing_brace(self):
+        """Reject a closing brace in a real executable filename."""
+        self.assert_unsafe_filename_rejected('}')
+
+    def test_rejects_policy_metacharacter_at_sign(self):
+        """Reject an at sign in a real executable filename."""
+        self.assert_unsafe_filename_rejected('@')
+
+    def test_rejects_policy_metacharacter_dollar_sign(self):
+        """Reject a dollar sign in a real executable filename."""
+        self.assert_unsafe_filename_rejected('$')
+
+    def test_rejects_policy_metacharacter_double_quote(self):
+        """Reject a double quote in a real executable filename."""
+        self.assert_unsafe_filename_rejected('"')
+
+    def test_rejects_policy_metacharacter_single_quote(self):
+        """Reject a single quote in a real executable filename."""
+        self.assert_unsafe_filename_rejected("'")
+
+    def test_rejects_policy_metacharacter_backslash(self):
+        """Reject a backslash in a real executable filename."""
+        self.assert_unsafe_filename_rejected('\\')
+
+    def test_rejects_policy_character_newline(self):
+        """Reject a newline in a real executable filename."""
+        self.assert_unsafe_filename_rejected('\n')
+
+    def test_rejects_policy_character_carriage_return(self):
+        """Reject a carriage return in a real executable filename."""
+        self.assert_unsafe_filename_rejected('\r')
+
+    def test_rejects_policy_character_tab(self):
+        """Reject a tab in a real executable filename."""
+        self.assert_unsafe_filename_rejected('\t')
+
+    def test_rejects_policy_character_start_of_heading(self):
+        """Reject a control byte in a real executable filename."""
+        self.assert_unsafe_filename_rejected('\x01')
+
+    def test_rejects_policy_character_delete(self):
+        """Reject the delete character in a real executable filename."""
+        self.assert_unsafe_filename_rejected('\x7f')
+
+    def test_rejects_policy_character_non_ascii(self):
+        """Reject a non-ASCII character in a real executable filename."""
+        self.assert_unsafe_filename_rejected('\xe9')
 
     def test_null_byte_is_rejected_before_filesystem_access(self):
         with tempfile.TemporaryDirectory() as temporary:

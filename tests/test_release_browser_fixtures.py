@@ -1,13 +1,12 @@
 """Keep mandatory icon coverage isolated from the legacy source fixtures."""
 
 from pathlib import Path
-import sys
 import tempfile
 import tomllib
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+# Bootstrap uninstalled tooling so discovery and direct execution share module identities.
+from support import ROOT
 from release_browser_fixtures import ICON_KEYS, icon_fixture
 
 

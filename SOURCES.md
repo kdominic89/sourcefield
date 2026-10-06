@@ -146,3 +146,25 @@ require an absent tag. Preparation has read access and cannot validate every unp
 the publisher checks matching draft identity, complete asset names, sizes and digests before its
 final tag check. `--draft` leaves the new tag pending until publication. A missing remote digest is
 rejected rather than accepted as evidence. The publication token receives no administration scope.
+
+## Python tooling structure checked on 2026-10-06
+
+- Importable modules, package ownership and module search: https://docs.python.org/3.11/tutorial/modules.html
+- Test discovery and module identities: https://docs.python.org/3.11/library/unittest.html#test-discovery
+- Mock targets follow caller lookup: https://docs.python.org/3.11/library/unittest.mock.html#where-to-patch
+- Shared dictionary type contracts: https://docs.python.org/3.11/library/typing.html#typing.TypedDict
+- Remote action and reusable workflow references: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+- Explicit test platform admission: https://docs.python.org/3.11/library/unittest.html#unittest.skipUnless
+- Windows process executable search order: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
+- Windows subprocess executable selection: https://docs.python.org/3.12/library/subprocess.html#popen-constructor
+- Official Windows 2025 runner shell inventory: https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md#shells
+
+Windows can resolve its System32 WSL launcher before a Git Bash executable found through PATH.
+Actual Bash dispatch fixtures are therefore scoped to POSIX; portable release CLI and wiring tests
+remain enabled on Windows. This source evidence does not prove which executable a specific hosted
+run started, nor does a simulated skip probe establish a full Windows test run.
+
+The internal tooling package needs no installation or third-party dependency. Shared type hints
+improve caller/IDE support but do not replace validation of release locks or consumer inputs.
+Workflow-source checks enforce the current template's conventions; they are not a general YAML parser
+or evidence of hosted workflow execution.

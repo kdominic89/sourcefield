@@ -24,6 +24,14 @@ version tag, downloadable artifact or hosted deployment exists.
 
 ### Correctness and reliability
 
+- Give shared Python artifact, release, consumer-path and presentation checks one internal owner;
+  retain existing command paths, wire formats and bounded hashing/extraction behavior.
+- Align optional consumer workflow validation with the pinned reusable template and separate it from
+  generated artifact admission. Split tooling tests by responsibility, reject unknown fake transport
+  commands, and include nested Python packages in verification and source archives. Keep actual Bash
+  dispatch checks POSIX-only while retaining portable release checks on Windows; report missing
+  required consumer workflow files explicitly.
+
 - Start releases with one owner-authorized manual dispatch on main; create version tags only after
   complete builds, provenance verification and uploaded asset checks, without a second approval.
 - Set the first intended release version to 0.1.0 and make matching draft retries resumable while

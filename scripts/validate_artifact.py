@@ -17,6 +17,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from sourcefield_tools.workflow_policy import validate_workflows
+
+
 SVG_FILES = ("sourcefield.dark.svg", "sourcefield.light.svg", "sourcefield.static.svg")
 BROWSER_FILES = ("index.html", "app.css", "app.js", "profile-state.json", "simulation-fallback.js")
 
@@ -429,27 +432,6 @@ def validate_public_secret_surface(root: Path, assets: Path | None = None,
             for pattern in patterns:
                 if pattern.search(text):
                     fail(f"possible token found in public artifact: {path}")
-
-
-def validate_workflows(root: Path) -> None:
-    """Check workflow source conventions without claiming execution evidence."""
-    update = (root / ".github/workflows/update-profile.yml").read_text(encoding="utf-8")
-    validate = (root / ".github/workflows/validate.yml").read_text(encoding="utf-8")
-    for action in (
-        "actions/checkout",
-        "actions/configure-pages",
-        "actions/upload-pages-artifact",
-        "actions/deploy-pages",
-    ):
-        references = re.findall(rf"uses:\s*{re.escape(action)}@([^\s]+)", update + "\n" + validate)
-        if not references or any(not re.fullmatch(r"[0-9a-f]{40}", reference) for reference in references):
-            fail(f"workflow requires immutable full commit references for {action}")
-
-    if "cargo generate-lockfile" in update or "cargo generate-lockfile" in validate:
-        fail("workflows must consume the committed Cargo.lock")
-
-    if "PROFILE_TOKEN:" not in update:
-        fail("optional PROFILE_TOKEN mapping is missing")
 
 
 def validate_wasm(root: Path, require_wasm: bool, docs: Path | None = None) -> str | None:

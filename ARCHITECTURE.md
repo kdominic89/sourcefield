@@ -32,6 +32,25 @@ Browser source is authored in `runtime/`. Generated `runtime/pkg/` is a build ar
 manuals live in `docs/`; they are not a deployable profile site. Runtime files reach consumers through
 the selected release or a deliberate local source build, never through sibling-path assumptions.
 
+## Python tooling boundaries
+
+The existing files in `scripts/` remain executable entrypoints for local and workflow callers.
+Reusable tooling lives in the standard-library-only `scripts/sourcefield_tools` package:
+
+- `artifacts` owns bounded file hashing and reproducible ZIP-entry metadata.
+- `release` owns the supported target inventory, typed release identities and shared asset/provenance checks.
+- `consumer` owns portable consumer-relative path admission.
+- `presentation` owns geometry, ornament and package checks used by tests and the browser fixture gate.
+- `workflow_policy` checks the current reusable consumer workflow's source conventions separately from
+  generated artifact validation. Exact release-lock equality remains the responsibility of `check_pin.py`.
+
+Command-specific installation, packaging and publication remain with their entrypoints. Production code
+never imports test modules. Tests use one documented path bootstrap in `tests/support` and normal module
+imports, so shared code has the same module identity as its command callers. Test suites are grouped by
+bootstrap, release assembly, publication, consumers and policy; transport doubles reject unknown commands.
+Source archives include the internal package and test support recursively, and verification parses nested
+Python source. Moving a module does not change CLI paths, wire schemas or artifact trust requirements.
+
 ## Identity and trust boundaries
 
 Organization IDs are stable namespaces; display labels and account handles are facts. Project IDs

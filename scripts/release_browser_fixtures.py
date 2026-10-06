@@ -13,6 +13,7 @@ import tomllib
 from pathlib import Path
 
 from fixture_support import write_readme
+from sourcefield_tools.presentation import validate_presentation
 
 
 ICON_KEYS = ("builtin:sourcefield", "builtin:database-safe", "browser-probe")
@@ -171,9 +172,6 @@ def verify_profiles(
             check=True,
         )
         # Validate real producer output; synthetic geometry alone can miss protocol drift.
-        sys.path.insert(0, str(root / "tests"))
-        from test_presentation import validate_presentation
-
         validate_presentation(consumer / "assets")
         command = [
             "node",

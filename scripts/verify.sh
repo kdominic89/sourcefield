@@ -23,7 +23,7 @@ import ast
 from pathlib import Path
 
 for directory in (Path("scripts"), Path("tests")):
-    for path in directory.glob("*.py"):
+    for path in directory.rglob("*.py"):
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 PY
 node --check runtime/app.js

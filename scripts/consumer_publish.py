@@ -9,8 +9,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from bootstrap_release import digest_file
-from consumer_candidate import relative_path
+from sourcefield_tools.artifacts import digest_file
+from sourcefield_tools.consumer import relative_path
 
 MANIFEST = ".sourcefield-owned.json"
 

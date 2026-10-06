@@ -80,4 +80,8 @@ jobs:
           cargo test --workspace --all-targets --locked
           cargo build --locked -p sourcefield-cli
       - name: Check portable distribution paths and Python boundaries
-        run: python -B -m unittest discover -s tests -p 'test_distribution.py'
+        run: |
+          python -B -m unittest discover -s tests -p 'test_distribution*.py'
+          python -B -m unittest discover -s tests -p 'test_shared_artifacts.py'
+          python -B -m unittest discover -s tests -p 'test_transport_contracts.py'
+          python -B -m unittest discover -s tests -p 'test_python_structure.py'

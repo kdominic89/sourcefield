@@ -7,7 +7,7 @@ import argparse
 import re
 from pathlib import Path
 
-from bootstrap_release import read_lock
+from sourcefield_tools.release import read_lock
 
 REFERENCE = re.compile(
     r"(?m)^(\s*uses:\s*kdominic89/sourcefield/\.github/workflows/generate\.yml@)([^\s#]+)(\s*(?:#.*)?)$"

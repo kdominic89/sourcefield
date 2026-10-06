@@ -7,7 +7,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from bootstrap_release import digest_file, read_lock, verify_asset, verify_provenance
+from sourcefield_tools.artifacts import digest_file
+from sourcefield_tools.release import ReleaseLock, read_lock, verify_asset, verify_provenance
 
 
 def existing_release(repository: str, release: str) -> dict | None:
@@ -85,7 +86,7 @@ def verify_inventory(directory: Path, existing: dict) -> None:
         raise ValueError("uploaded release assets differ from the complete verified candidate")
 
 
-def verify_published(directory: Path, lock: dict) -> None:
+def verify_published(directory: Path, lock: ReleaseLock) -> None:
     """Confirm the final immutable release and every uploaded asset without changing it."""
     existing = existing_release(lock["repository"], lock["release"])
     if existing is None or existing["draft"] or existing["target_commitish"] != lock["source_commit"]:

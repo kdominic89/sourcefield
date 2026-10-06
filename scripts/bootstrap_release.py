@@ -4,10 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import platform
-import re
 import shutil
 import stat
 import subprocess
@@ -16,86 +14,16 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from runtime_manifest import RUNTIME_FILES
+from sourcefield_tools.release import (
+    MAX_ARCHIVE_BYTES,
+    TARGETS,
+    ReleaseLock,
+    read_lock,
+    release_metadata,
+    verify_asset,
+)
 
-TARGETS = {
-    ("Darwin", "arm64"): "aarch64-apple-darwin",
-    ("Darwin", "x86_64"): "x86_64-apple-darwin",
-    ("Linux", "x86_64"): "x86_64-unknown-linux-gnu",
-    ("Linux", "aarch64"): "aarch64-unknown-linux-gnu",
-    ("Windows", "AMD64"): "x86_64-pc-windows-msvc",
-}
-
-MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
 MAX_MEMBERS = 256
-
-
-def digest_file(path: Path) -> str:
-    """Hash bounded chunks rather than loading a release archive into memory."""
-    result = hashlib.sha256()
-    with path.open("rb") as source:
-        for block in iter(lambda: source.read(1024 * 1024), b""):
-            result.update(block)
-
-    return result.hexdigest()
-
-
-def read_lock(path: Path) -> dict:
-    """Validate the complete authored release identity before any network access."""
-    if path.stat().st_size > 64 * 1024:
-        raise ValueError("release lock exceeds 64 KiB")
-
-    value = json.loads(path.read_text(encoding="utf-8"))
-    expected = {
-        "schema_version",
-        "repository",
-        "source_commit",
-        "release",
-        "workflow",
-        "assets",
-    }
-
-    if not isinstance(value, dict) or set(value) != expected:
-        raise ValueError("lock must contain exactly the documented version 1 fields")
-
-    if value["schema_version"] != 1 or isinstance(value["schema_version"], bool):
-        raise ValueError("unsupported lock schema_version")
-
-    if value["repository"] != "kdominic89/sourcefield":
-        raise ValueError("unexpected Sourcefield repository")
-
-    if not isinstance(value["source_commit"], str) or not re.fullmatch(
-        r"[0-9a-f]{40}", value["source_commit"]
-    ):
-        raise ValueError("source_commit must be a full lowercase Git commit SHA")
-
-    if not isinstance(value["release"], str) or not re.fullmatch(
-        r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", value["release"]
-    ):
-        raise ValueError("release must be an exact version tag")
-
-    if value["workflow"] != ".github/workflows/release.yml":
-        raise ValueError("unexpected release signer workflow")
-
-    assets = value["assets"]
-    if not isinstance(assets, dict) or set(assets) != set(TARGETS.values()) | {
-        "browser"
-    }:
-        raise ValueError(
-            "lock must identify every supported native asset and browser asset"
-        )
-
-    for target, asset in assets.items():
-        if not isinstance(asset, dict) or set(asset) != {"name", "sha256"}:
-            raise ValueError(f"invalid asset entry: {target}")
-
-        if (
-            asset["name"] != f"sourcefield-{target}.zip"
-            or not isinstance(asset["sha256"], str)
-            or not re.fullmatch(r"[0-9a-f]{64}", asset["sha256"])
-        ):
-            raise ValueError(f"invalid asset identity: {target}")
-
-    return value
 
 
 def extract_archive(archive: Path, destination: Path) -> None:
@@ -142,51 +70,7 @@ def extract_archive(archive: Path, destination: Path) -> None:
             target.chmod(0o755 if item.filename == "sourcefield" else 0o644)
 
 
-def verify_asset(lock: dict, path: Path, target: str) -> None:
-    """Bind downloaded bytes to the release, source commit and specific signer workflow."""
-    if (
-        path.stat().st_size > MAX_ARCHIVE_BYTES
-        or digest_file(path) != lock["assets"][target]["sha256"]
-    ):
-        raise ValueError(f"asset checksum or size mismatch: {target}")
-
-    subprocess.run(
-        [
-            "gh",
-            "release",
-            "verify-asset",
-            lock["release"],
-            str(path),
-            "--repo",
-            lock["repository"],
-        ],
-        check=True,
-    )
-    verify_provenance(lock, path)
-
-
-def verify_provenance(lock: dict, path: Path) -> None:
-    """Require build provenance from the pinned release workflow and source commit."""
-    subprocess.run(
-        [
-            "gh",
-            "attestation",
-            "verify",
-            str(path),
-            "--repo",
-            lock["repository"],
-            "--signer-workflow",
-            f"{lock['repository']}/{lock['workflow']}",
-            "--source-digest",
-            lock["source_commit"],
-            "--signer-digest",
-            lock["source_commit"],
-        ],
-        check=True,
-    )
-
-
-def install(lock: dict, destination: Path, target: str) -> Path:
+def install(lock: ReleaseLock, destination: Path, target: str) -> Path:
     """Verify both assets before installing a complete CLI and browser pair."""
     if target not in set(TARGETS.values()):
         raise ValueError(f"unsupported native target: {target}")
@@ -234,12 +118,7 @@ def install(lock: dict, destination: Path, target: str) -> Path:
                 (tree / "release-metadata.json").read_text(encoding="utf-8")
             )
 
-            expected = {
-                "schema_version": 1,
-                "source_commit": lock["source_commit"],
-                "release": lock["release"],
-                "target": identity,
-            }
+            expected = release_metadata(lock["source_commit"], lock["release"], identity)
 
             if metadata != expected:
                 raise ValueError(

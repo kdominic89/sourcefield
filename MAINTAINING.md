@@ -10,6 +10,11 @@ administration-read permission, which the publication token intentionally lacks.
 the actual immutable release immediately after publication and reports failure if verification fails.
 Do not grant repository administration to the publication token.
 
+The publish job has a 20-minute execution timeout for artifact download, verification, upload and
+publication. Environment approval happens before runner dispatch and has its own GitHub wait limit.
+After a timeout, inspect the release: retry an incomplete draft, or verify an already-published
+immutable release before deciding on further action. Never delete or overwrite a published release.
+
 The repository version and intended version tag must agree. Review both real consumers with captured
 inputs and a synthetic second organization before approving a release. The release workflow runs
 verification, builds and smoke-tests all five native targets, packages the complete WASM/browser

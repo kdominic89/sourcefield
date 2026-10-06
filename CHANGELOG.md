@@ -38,5 +38,6 @@ version tag, downloadable artifact or hosted deployment exists.
 - Verify documentation previews against the renderer and include community files in source archives.
 - Diagnose yanked tool pins explicitly while retaining reviewed updates and downgrade protection.
 - Check byte-reader correctness and a retained allocation budget without requiring exact Vec capacity.
+- Bound release publication runtime.
 
 Release dates and version sections will be added when an actual release is published.

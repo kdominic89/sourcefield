@@ -21,7 +21,9 @@ release or deployment has already run.
 
 Workflow action revisions are full commit pins. Update them through a reviewed dependency change and
 verify vendor release provenance; major-version labels in comments are explanatory only. Rust and
-WASM tool versions are pinned in repository configuration and `scripts/build-wasm.sh`.
+WASM tool versions are pinned in `rust-toolchain.toml` and `tools/wasm-pack-version.txt`.
+The current Playwright pin and dependency closure live in `tools/browser/package.json` and
+`tools/browser/package-lock.json`; dated registry observations below are historical evidence.
 
 - Playwright CI/browser provisioning: https://playwright.dev/docs/ci
 - Exact existing browser test tool metadata: https://registry.npmjs.org/playwright/1.63.0
@@ -88,3 +90,14 @@ The image's final permission setup applies `chmod -R 777 /opt`, so its preinstal
 does not retain trustworthy setuid permissions. The workflow uses the documented `userns` profile
 for one exact bundled executable instead. The browser path is resolved once and reused for the
 policy and explicit browser launch, retaining the pinned Playwright/Chromium pairing.
+
+## Review corrections: API contracts checked on 2026-10-06
+
+- crates.io excludes yanked versions when calculating the highest stable release:
+  https://github.com/rust-lang/crates.io/blob/0ea9b2cc5237d037b7e690d26015bc458cf14d28/crates/crates_io_database/src/models/krate.rs#L193
+  https://doc.rust-lang.org/cargo/commands/cargo-yank.html
+
+The official npm metadata for both packages in the current browser lockfile was checked against
+their exact resolved URLs and integrity values. Both matched; no package version changed.
+The official full wasm-pack inventory contained the existing non-yanked pin and matched the
+reported latest stable release. The tool continues to reject automatic downgrades.

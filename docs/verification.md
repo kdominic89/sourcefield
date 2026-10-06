@@ -25,8 +25,9 @@ Workspace tests cover competing writers and interrupted promotion. Import tests 
 required sources and provenance isolation. Migration tests cover original-file preservation and
 unsupported formats. A release is complete only when these gates and consumer parity checks pass.
 
-The shared validation workflow provisions the existing Playwright test tool at exact version 1.63.0
-in the runner's temporary directory and installs its Chromium build and Linux system prerequisites.
+The shared validation workflow copies `tools/browser/package.json` and its lockfile into the
+runner's temporary directory, runs `npm ci --include=dev`, and installs the pinned Playwright
+Chromium build and Linux system prerequisites.
 No browser tool becomes a product dependency. `scripts/release_browser_fixtures.py` generates the
 synthetic personal, organization and multiple-organization consumers, then runs the real browser
 runner against all three. Release jobs depend on this gate. Fixture generation is offline; initial
@@ -82,7 +83,9 @@ Pull requests run native Rust tests on Linux, macOS and Windows, plus portable P
 checks. Linux additionally runs the complete WASM/browser gate. Hosted results are required before
 claiming cross-platform execution; a local macOS run does not establish Windows success.
 
-Dependabot covers Cargo and GitHub Actions updates. Existing `cargo clippy`, compiler/rustdoc gates,
+Dependabot covers Cargo, GitHub Actions, the Rust toolchain and the browser npm manifest/lockfile.
+The separate tool-freshness workflow checks the authoritative wasm-pack pin against crates.io.
+Existing `cargo clippy`, compiler/rustdoc gates,
 Python AST parsing and Node syntax/tests remain required. No additional linter or audit executable
 is silently introduced: dependency-advisory scanning is not claimed by these checks. A dedicated
 advisory tool requires a separately reviewed tool/version and update policy.

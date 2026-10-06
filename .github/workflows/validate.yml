@@ -17,14 +17,16 @@ jobs:
       - name: Install the repository-pinned toolchain
         run: rustup show active-toolchain
       - name: Install the pinned WASM packager
-        run: cargo install wasm-pack --version 0.15.0 --locked
+        run: cargo install wasm-pack --version "$(python3 scripts/tool_versions.py --version)" --locked
       - name: Build the complete WASM runtime
         run: bash scripts/build-wasm.sh
       - name: Verify native, WASM, Python, browser modules and API documentation
         run: bash scripts/verify.sh
       - name: Provision the pinned existing browser test tool
         run: |
-          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund --save-exact playwright@1.63.0
+          mkdir -p "$RUNNER_TEMP/browser-tools"
+          cp tools/browser/package.json tools/browser/package-lock.json "$RUNNER_TEMP/browser-tools/"
+          npm ci --prefix "$RUNNER_TEMP/browser-tools" --include=dev --ignore-scripts --no-audit --no-fund
           node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps --no-shell chromium
       - name: Allow the bundled browser sandbox for its exact executable
         run: |

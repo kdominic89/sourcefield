@@ -25,7 +25,7 @@ access. Profile generation below is offline and needs no GitHub token.
 Install the pinned WASM build tool once:
 
 ```sh
-cargo install wasm-pack --version 0.15.0 --locked
+cargo install wasm-pack --version "$(python3 scripts/tool_versions.py --version)" --locked
 ```
 
 Build the browser runtime and generate a complete synthetic profile in a new temporary directory:

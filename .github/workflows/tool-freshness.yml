@@ -1,0 +1,17 @@
+name: Check tool freshness
+on:
+  schedule:
+    - cron: '19 7 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wasm-pack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the pinned packager against crates.io latest stable
+        run: python3 scripts/tool_versions.py --check

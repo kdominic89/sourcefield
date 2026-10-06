@@ -219,6 +219,57 @@ class BrowserSandboxWorkflowTests(unittest.TestCase):
             PYTHONDONTWRITEBYTECODE="1",
         )
 
+    def test_browser_provisioning_consumes_the_authored_lock_and_full_chromium(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            executable = executable_file(root)
+            environment = self.workflow_environment(root, executable)
+            npm = root / "tools/npm"
+            npm.write_text(
+                f"#!{sys.executable}\n"
+                "import json, os, sys\n"
+                "from pathlib import Path\n"
+                "root = Path(os.environ['RUNNER_TEMP'])\n"
+                "(root / 'npm-args.json').write_text(json.dumps(sys.argv[1:]))\n",
+                encoding="ascii",
+            )
+            npm.chmod(0o755)
+            block = workflow_run("Provision the pinned existing browser test tool")
+
+            result = subprocess.run(
+                ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", block],
+                cwd=SCRIPTS.parent, env=environment, capture_output=True, text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads((root / "npm-args.json").read_text()),
+                             ["ci", "--prefix", str(root / "browser-tools"),
+                              "--include=dev", "--ignore-scripts", "--no-audit", "--no-fund"])
+            for name in ("package.json", "package-lock.json"):
+                self.assertEqual((root / "browser-tools" / name).read_bytes(),
+                                 (SCRIPTS.parent / "tools/browser" / name).read_bytes())
+            self.assertEqual(json.loads((root / "node-args.json").read_text()),
+                             [str(root / "browser-tools/node_modules/playwright/cli.js"),
+                              "install", "--with-deps", "--no-shell", "chromium"])
+
+    def test_browser_lock_install_failure_prevents_chromium_installation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            executable = executable_file(root)
+            environment = self.workflow_environment(root, executable)
+            npm = root / "tools/npm"
+            npm.write_text("#!/bin/sh\nexit 7\n", encoding="ascii")
+            npm.chmod(0o755)
+            block = workflow_run("Provision the pinned existing browser test tool")
+
+            result = subprocess.run(
+                ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", block],
+                cwd=SCRIPTS.parent, env=environment, capture_output=True, text=True,
+            )
+
+            self.assertEqual(result.returncode, 7)
+            self.assertFalse((root / "node-args.json").exists())
+
     def test_workflow_installs_policy_and_publishes_the_same_browser(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

@@ -27,6 +27,7 @@ SOURCE_INPUTS = (
     "crates/sourcefield-core/src/model.rs",
     "Cargo.lock",
     "rust-toolchain.toml",
+    "tools/wasm-pack-version.txt",
 )
 RUNTIME_FILES = (
     "index.html", "app.css", "app.js", "simulation-fallback.js", "favicon.svg",

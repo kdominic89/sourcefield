@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 from pathlib import Path
 import shutil
 import tempfile
@@ -69,6 +70,27 @@ class RuntimeManifestTests(unittest.TestCase):
         after = MANIFEST.source_fingerprint(self.root)
 
         self.assertNotEqual(before, after)
+
+    def test_packager_pin_change_changes_source_identity(self) -> None:
+        """A new consumed packager pin cannot retain an older native/browser identity."""
+        pin = self.root / "tools/wasm-pack-version.txt"
+        before = MANIFEST.source_fingerprint(self.root)
+
+        pin.write_text("0.16.0\n", encoding="ascii")
+        after = MANIFEST.source_fingerprint(self.root)
+
+        self.assertNotEqual(before, after)
+
+    def test_rust_and_python_inputs_have_identical_order(self) -> None:
+        """Both implementations hash the same authored paths in the same sequence."""
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "crates/sourcefield-cli/build.rs").read_text(encoding="ascii")
+        declaration = source.split("const INPUTS: &[&str] = &[", 1)[1].split("];", 1)[0]
+
+        rust_inputs = tuple(re.findall(r'"([^"]+)"', declaration))
+
+        self.assertEqual(rust_inputs, MANIFEST.SOURCE_INPUTS)
+        self.assertIn("tools/wasm-pack-version.txt", rust_inputs)
 
     def test_full_release_revision_is_preserved(self) -> None:
         """Release manifests retain the explicit full immutable source commit."""

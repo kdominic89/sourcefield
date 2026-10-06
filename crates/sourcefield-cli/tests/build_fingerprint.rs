@@ -34,6 +34,7 @@ impl Fixture {
             "crates/sourcefield-core/src/model.rs",
             "Cargo.lock",
             "rust-toolchain.toml",
+            "tools/wasm-pack-version.txt",
             "Cargo.toml",
             "crates/sourcefield-cli/build.rs",
             "crates/sourcefield-cli/Cargo.toml",
@@ -165,6 +166,30 @@ fn missing_required_source_fails_instead_of_publishing_partial_identity() {
     fs::remove_file(fixture.0.join("Cargo.lock")).unwrap();
 
     let result = std::panic::catch_unwind(|| build_script::generator_fingerprint(&fixture.0));
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn wasm_pack_pin_changes_runtime_and_generator_identity() {
+    let fixture = Fixture::new();
+    let generator_before = build_script::generator_fingerprint(&fixture.0);
+    let runtime_before = build_script::runtime_fingerprint(&fixture.0);
+
+    fs::write(fixture.0.join("tools/wasm-pack-version.txt"), "0.16.0\n").unwrap();
+    let generator_after = build_script::generator_fingerprint(&fixture.0);
+    let runtime_after = build_script::runtime_fingerprint(&fixture.0);
+
+    assert_ne!(generator_before, generator_after);
+    assert_ne!(runtime_before, runtime_after);
+}
+
+#[test]
+fn missing_wasm_pack_pin_fails_instead_of_publishing_partial_runtime_identity() {
+    let fixture = Fixture::new();
+    fs::remove_file(fixture.0.join("tools/wasm-pack-version.txt")).unwrap();
+
+    let result = std::panic::catch_unwind(|| build_script::runtime_fingerprint(&fixture.0));
 
     assert!(result.is_err());
 }

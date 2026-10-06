@@ -203,18 +203,19 @@ pub fn build_prepared_state(
                 weight: 0.55,
                 show_in_readme: project.show_in_readme,
             });
-            for technology in component.integrates.iter().chain(component.targets.iter()) {
-                edges.push(Edge {
-                    from: format!("technology:{technology}"),
-                    to: component_id.clone(),
-                    kind: if component.targets.contains(technology) {
-                        EdgeKind::Targets
-                    } else {
-                        EdgeKind::Integrates
-                    },
-                    weight: 0.25,
-                    show_in_readme: false,
-                });
+            for (technologies, kind) in [
+                (&component.integrates, EdgeKind::Integrates),
+                (&component.targets, EdgeKind::Targets),
+            ] {
+                for technology in technologies {
+                    edges.push(Edge {
+                        from: format!("technology:{technology}"),
+                        to: component_id.clone(),
+                        kind,
+                        weight: 0.25,
+                        show_in_readme: false,
+                    });
+                }
             }
         }
 
@@ -407,31 +408,29 @@ pub fn build_prepared_state(
         }
     }
 
-    if config.render.show_interests_in_readme || !config.interests.is_empty() {
-        for (index, interest) in config.interests.iter().enumerate() {
-            nodes.push(Node {
-                display_stack: Vec::new(),
-                label_prefix: None,
-                id: format!("interest:{}", interest.id),
-                label: interest.label.clone(),
-                surface_label: interest.label.clone(),
-                kind: NodeKind::Interest,
-                domain: None,
-                x: 650.0 + index as f32 * 150.0,
-                y: config.render.height as f32 - 80.0,
-                radius: 10.0,
-                weight: 0.18,
-                summary: interest.summary.clone(),
-                details: Vec::new(),
-                tags: vec!["interest".to_string()],
-                url: None,
-                visibility: None,
-                show_in_readme: config.render.show_interests_in_readme && interest.show_in_readme,
-                visual: Some("horizon".to_string()),
-                scope: None,
-                family: None,
-            });
-        }
+    for (index, interest) in config.interests.iter().enumerate() {
+        nodes.push(Node {
+            display_stack: Vec::new(),
+            label_prefix: None,
+            id: format!("interest:{}", interest.id),
+            label: interest.label.clone(),
+            surface_label: interest.label.clone(),
+            kind: NodeKind::Interest,
+            domain: None,
+            x: 650.0 + index as f32 * 150.0,
+            y: config.render.height as f32 - 80.0,
+            radius: 10.0,
+            weight: 0.18,
+            summary: interest.summary.clone(),
+            details: Vec::new(),
+            tags: vec!["interest".to_string()],
+            url: None,
+            visibility: None,
+            show_in_readme: config.render.show_interests_in_readme && interest.show_in_readme,
+            visual: Some("horizon".to_string()),
+            scope: None,
+            family: None,
+        });
     }
 
     if config.collection.visualize_discovered_repositories {

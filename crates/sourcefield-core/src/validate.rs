@@ -210,7 +210,7 @@ fn validate_configuration(
     }
 
     if let Some(maintainer) = &config.profile.maintainer {
-        account(&maintainer.username)?;
+        validate_github_handle(&maintainer.username)?;
         safe_url(&maintainer.url)?;
     }
 
@@ -222,20 +222,20 @@ fn validate_configuration(
 
     safe_url(&config.profile.pages_url)?;
     safe_url(&config.profile.source_url)?;
-    account(&config.profile.username)?;
-    account(&config.profile.organization)?;
+    validate_github_handle(&config.profile.username)?;
+    validate_github_handle(&config.profile.organization)?;
     if config.profile.variant == crate::ProfileVariant::Personal
         || !config.collection.github_user.is_empty()
     {
-        account(&config.collection.github_user)?;
+        validate_github_handle(&config.collection.github_user)?;
     }
 
     if let Some(owner) = &config.collection.nuget_owner {
-        account(owner)?;
+        validate_github_handle(owner)?;
     }
 
     for organization in &config.collection.github_organizations {
-        account(organization)?;
+        validate_github_handle(organization)?;
     }
 
     let mut ids = BTreeSet::new();
@@ -266,10 +266,10 @@ fn validate_configuration(
 
     for domain in &config.domains {
         insert(&mut ids, &format!("domain:{}", domain.id))?;
-        account(&domain.owner)?;
+        validate_github_handle(&domain.owner)?;
 
         if let Some(maintainer) = &domain.maintainer {
-            account(&maintainer.username)?;
+            validate_github_handle(&maintainer.username)?;
             safe_url(&maintainer.url)?;
         }
 
@@ -348,7 +348,7 @@ fn validate_configuration(
         }
 
         if let Some(owner) = &publication.owner {
-            account(owner)?;
+            validate_github_handle(owner)?;
         }
 
         insert(&mut ids, &format!("publication:{}", publication.id))?;
@@ -447,7 +447,7 @@ pub fn validate_state(state: &ProfileState) -> Result<(), ValidationError> {
     }
 
     if let Some(maintainer) = &state.profile.maintainer {
-        account(&maintainer.username)?;
+        validate_github_handle(&maintainer.username)?;
         safe_url(&maintainer.url)?;
     }
 
@@ -539,8 +539,10 @@ fn safe_url(value: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
-/// GitHub identities are path segments, never URL fragments or arbitrary paths.
-fn account(value: &str) -> Result<(), ValidationError> {
+/// Check that a public GitHub handle can safely form a URL path segment.
+///
+/// The validator name distinguishes its status result from functions that return account data.
+fn validate_github_handle(value: &str) -> Result<(), ValidationError> {
     if value.is_empty()
         || !value
             .bytes()
@@ -558,7 +560,7 @@ fn repository_name(value: &str) -> Result<(), ValidationError> {
         return Err(ValidationError::InvalidValue("repository name".into()));
     };
 
-    account(owner)?;
+    validate_github_handle(owner)?;
     if name.is_empty()
         || matches!(name, "." | "..")
         || !name
@@ -674,4 +676,45 @@ fn package_link(id: &str, url: &str) -> Result<(), ValidationError> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ValidationError, validate_github_handle};
+
+    #[test]
+    fn github_handle_validation_accepts_existing_ascii_forms() {
+        // Arrange
+        let handles = ["sample-user", "sample-labs", "ExampleLabs", "123", "a-b"];
+
+        // Act
+        let results = handles.map(validate_github_handle);
+
+        // Assert
+        assert!(results.iter().all(Result::is_ok));
+    }
+
+    #[test]
+    fn github_handle_validation_preserves_rejection_diagnostics() {
+        // Arrange
+        let handles = [
+            "",
+            "sample/user",
+            "sample_user",
+            "sample.user",
+            "sample user",
+            "sample\\user",
+            "sample\nuser",
+            "sample\u{e9}",
+        ];
+
+        // Act
+        let results = handles.map(validate_github_handle);
+
+        // Assert
+        assert!(results.into_iter().all(|result| matches!(
+            result,
+            Err(ValidationError::InvalidValue(message)) if message == "GitHub account"
+        )));
+    }
 }

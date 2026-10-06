@@ -25,7 +25,8 @@ pub enum ConfigError {
 
 /// Read typed TOML configuration without mutating the source file.
 ///
-/// Parsing includes [`crate::validate_config`]; invalid references and public text are rejected.
+/// Parsing rejects invalid public text and references, except icon keys in selected import
+/// namespaces. Composition resolves those keys and applies full catalog usage limits.
 pub fn load_config(path: impl AsRef<Path>) -> Result<Config, ConfigError> {
     let path = path.as_ref();
     let text = fs::read_to_string(path).map_err(|source| ConfigError::Read {
@@ -34,7 +35,7 @@ pub fn load_config(path: impl AsRef<Path>) -> Result<Config, ConfigError> {
     })?;
 
     let config = toml::from_str(&text)?;
-    crate::validate_config(&config)?;
+    crate::validate::validate_authored_config(&config)?;
 
     Ok(config)
 }

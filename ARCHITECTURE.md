@@ -17,7 +17,8 @@ push or deploy. Consumer automation publishes an already validated candidate.
 - `sourcefield-io`: bounded byte/JSON I/O and digest primitives shared by native consumers;
   each caller retains its own path, size and provenance policy. It is outside the WASM graph.
 - `sourcefield-core`: typed schema, strict validation, privacy filtering, graph and stable placement.
-  Its `registry` module owns managed README project/package projections.
+  Its `registry` module owns managed README project/package projections. Its icon module owns
+  the bounded primitive catalog shared by configuration, organization imports and state admission.
 - `sourcefield-collector`: scoped public GitHub/NuGet collection and bounded discovery.
 - `sourcefield-render`: static/animated SVG projections.
 - `sourcefield-cli`: orchestration, import/replay policy and explicit filesystem destinations.
@@ -39,6 +40,10 @@ limited to approved owners and exact roots/dot-separated descendants. An organiz
 exclude personal observations even when its input cache was previously used by a personal profile.
 
 Remote manifests are data, never scripts. Imported paths and schemas are checked before use.
+Icons contain typed absolute geometry, semantic colors and a fixed motion vocabulary. Catalogs are
+shared per configuration/state; nodes hold references. Organization-local keys and references are
+qualified together. The renderer borrows definitions and emits primitive markup with renderer-owned
+clipping identifiers; consumer input cannot introduce XML, CSS, scripts or external resources.
 Network collection failures cannot authorize silent source removal. Live generation and historical
 replay have distinct provenance. Tokens are process inputs and never persisted with observations.
 

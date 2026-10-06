@@ -4,6 +4,8 @@
 `OrganizationManifest` types document every supported field. Unknown fields, unsupported versions,
 duplicate identities, invalid references and stale explicit layout overrides are errors.
 `examples/organization.toml` is synthetic canonical organization content.
+Projects can select a built-in or consumer-owned `icon` independently of their existing `visual`.
+See [the icon catalog](icons.md) for authoring, organization namespacing and validation limits.
 
 A local organization import resolves its path relative to the profile configuration directory:
 

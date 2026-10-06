@@ -7,6 +7,11 @@ version tag, downloadable artifact or hosted deployment exists.
 
 ### Added
 
+- Built-in Sourcefield network and open database-safe motifs, with a typed consumer-owned icon
+  catalog shared through organization manifests, state, replay and native/browser rendering.
+  Organization namespaces follow the existing ID rules; motion respects pause, reduced motion
+  and document visibility changes.
+
 - Shared Rust generator for personal and organization GitHub profiles, animated SVGs and an
   interactive browser view with a WASM simulation and JavaScript fallback.
 - Canonical organization manifests, explicit imports and stable project identities for multiple
@@ -18,6 +23,10 @@ version tag, downloadable artifact or hosted deployment exists.
 - Synthetic examples, local preview instructions, contributor guidance and community templates.
 
 ### Correctness and reliability
+
+- Preserve non-selected canonical imports, source provenance and shared technology bindings during
+  organization extraction; retain live local references after relocating the exported profile.
+- Support `extract-organization --assets` for captured imports and saved layout outside `assets`.
 
 - Strict publication explains approved source failures while withholding untrusted diagnostics.
 - Fallback preserves observation provenance; preview data cannot become live package evidence.

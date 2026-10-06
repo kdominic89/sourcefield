@@ -193,6 +193,9 @@ async function createSimulator(state = app.state, nodes = app.nodes, edges = app
 /** Bind controls and isolate navigation from canvas gestures. */
 function bindEvents() {
     window.addEventListener('resize', resize, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncProfileAnimations();
+    });
     mediaLight.addEventListener?.('change', () => {
         app.dirty = true;
         app.palette = readPalette();
@@ -1214,6 +1217,14 @@ function configureProfileAnimations(svg, baseSeconds) {
             case 'pulse':
                 duration = 6;
                 break;
+            case 'icon-signal': {
+                const phase = target.classList.contains('icon-signal-phase-2') ? 2 :
+                    target.classList.contains('icon-signal-phase-1') ? 1 : 0;
+
+                animation.effect.updateTiming({ duration: 5400, delay: phase === 0 ? 0 : -1800 * phase });
+                continue;
+            }
+
             case 'signal': {
                 const value = target.dataset.signalDelay ?? '';
                 const delay = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value) ? Number(value) * 1000 : NaN;

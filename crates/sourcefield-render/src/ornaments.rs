@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 
 use sourcefield_core::{Node, NodeKind, ProfileState};
 
-use super::{Palette, node_color, path};
+use super::{Palette, icons, node_color, path};
 
 /// Render local ornaments without introducing a transform around stable labels.
 pub(super) fn render(
@@ -13,6 +13,7 @@ pub(super) fn render(
     radius: f32,
     state: &ProfileState,
     p: Palette,
+    motion: bool,
 ) {
     if node.kind == NodeKind::Domain {
         if node.scope.as_deref() == Some("organization") {
@@ -37,7 +38,12 @@ pub(super) fn render(
         (radius - 8.0).max(1.0)
     );
 
-    if node.visual.as_deref() == Some("finance") {
+    let icon = node
+        .icon
+        .as_deref()
+        .and_then(|id| sourcefield_core::resolve_icon(&state.icons, id));
+
+    if icon.is_none() && node.visual.as_deref() == Some("finance") {
         vault(output, color, p);
         return;
     }
@@ -48,6 +54,11 @@ pub(super) fn render(
         (radius - 16.0).max(1.0),
         p.surface
     );
+
+    if let Some(icon) = icon {
+        icons::render(output, node, icon, (radius - 16.0).max(1.0), p, motion);
+        return;
+    }
 
     if node.visual.as_deref() == Some("trace") {
         radar(output, color);

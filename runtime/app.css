@@ -687,6 +687,29 @@ because shrinking long package labels makes a graph unreadable. */
 
 }
 
+#profile-view .icon-signal {
+  animation: icon-signal 5.4s ease-in-out infinite;
+}
+
+#profile-view .icon-signal-phase-1 {
+  animation-delay: -1.8s;
+}
+
+#profile-view .icon-signal-phase-2 {
+  animation-delay: -3.6s;
+}
+
+@keyframes icon-signal {
+  0%, 100% {
+    opacity: .35;
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+}
+
 #profile-view [data-node-id][role="button"] {
   cursor: pointer;
 }
@@ -871,7 +894,8 @@ because shrinking long package labels makes a graph unreadable. */
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #profile-view .rotate, #profile-view .flow, #profile-view .pulse, #profile-view .signal {
+  #profile-view .rotate, #profile-view .flow, #profile-view .pulse, #profile-view .signal,
+  #profile-view .icon-signal {
     animation: none !important;
   }
 

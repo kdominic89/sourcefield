@@ -28,6 +28,9 @@ fn default_detail_level() -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    /// Shared authored icon definitions, referenced by project icon keys.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub icons: crate::IconCatalog,
     /// Authored configuration schema version (serialized as schema_version).
     #[serde(rename = "schema_version")]
     pub version: u32,
@@ -208,6 +211,9 @@ pub struct TechnologyConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectConfig {
+    /// Optional built-in or authored icon key; visual retains its palette and fallback role.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     /// Optional authored glyph radius in design pixels.
     #[serde(default)]
     pub radius: Option<f32>,
@@ -575,6 +581,9 @@ pub struct PackageSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProfileState {
+    /// Shared authored icon definitions, stored once for all project nodes.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub icons: crate::IconCatalog,
     /// Selected organization identities and canonical maintainer attribution.
     #[serde(default)]
     pub organizations: Vec<OrganizationIdentity>,
@@ -710,6 +719,9 @@ pub enum NodeKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Node {
+    /// Optional project icon key resolved against the shared state catalog and built-ins.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     /// Approved stack labels in display order, distinct from implementation graph edges.
     #[serde(default)]
     pub display_stack: Vec<String>,

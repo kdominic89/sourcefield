@@ -77,6 +77,7 @@ export function options(args = process.argv.slice(2), environment = process.env)
         browser: { type: 'string', default: environment.SOURCEFIELD_CHROMIUM },
         site: { type: 'string', default: join(root, 'dist/site') },
         output: { type: 'string', default: join(root, 'dist/browser-checks') },
+        'require-icons': { type: 'boolean', default: false },
         help: { type: 'boolean', default: false },
     } });
 
@@ -120,9 +121,11 @@ async function run(settings) {
         browser = await chromium.launch({ executablePath: settings.browser, headless: true, chromiumSandbox: true });
         const { runInteractionChecks } = await import('../tests/integration/interactions.mjs');
         const { runFieldChecks } = await import('../tests/integration/field.mjs');
+        const { runIconChecks } = await import('../tests/integration/icons.mjs');
         const { runSimulationChecks } = await import('../tests/integration/simulation.mjs');
         const context = { browser, base: server.url, output };
 
+        report.checks.icons = await runIconChecks({ ...context, requireIcons: settings['require-icons'] });
         report.checks.simulation = await runSimulationChecks(context);
         report.checks.interactions = await runInteractionChecks(context);
         report.checks.field = await runFieldChecks(context);
@@ -147,7 +150,8 @@ async function main() {
     const settings = options();
 
     if (settings.help) {
-        console.log('Usage: node scripts/verify-browser.mjs [--playwright-module FILE] [--browser FILE] [--output DIR] [--site DIR]');
+        console.log('Usage: node scripts/verify-browser.mjs [--playwright-module FILE] [--browser FILE]'
+            + ' [--output DIR] [--site DIR] [--require-icons]');
         console.log('Uses an existing Playwright library and Chromium; serves docs only on an ephemeral loopback port.');
         return;
     }

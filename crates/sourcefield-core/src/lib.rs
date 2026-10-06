@@ -4,9 +4,11 @@
 
 mod config;
 mod constants;
+mod icons;
 mod presentation_layout;
 mod xml_text;
 pub use constants::*;
+pub use icons::*;
 pub use presentation_layout::*;
 mod graph;
 mod model;

@@ -163,8 +163,35 @@ impl Fixture {
 
 impl Drop for Fixture {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        // Cleanup must not replace an assertion failure with a second panic during unwinding.
+        let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+#[test]
+fn fixture_cleanup_removes_directory() {
+    // Arrange
+    let fixture = Fixture::new();
+    let path = fixture.0.clone();
+
+    // Act
+    drop(fixture);
+
+    // Assert
+    assert!(!path.exists());
+}
+
+#[test]
+fn fixture_cleanup_does_not_panic_when_directory_is_missing() {
+    // Arrange
+    let fixture = Fixture::new();
+    fs::remove_dir_all(&fixture.0).unwrap();
+
+    // Act
+    let result = std::panic::catch_unwind(|| drop(fixture));
+
+    // Assert
+    assert!(result.is_ok(), "fixture cleanup must not introduce a panic");
 }
 
 #[test]

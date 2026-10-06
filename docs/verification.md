@@ -5,6 +5,10 @@ Node browser tests, rustfmt, all-target compilation, WASM compilation, native/do
 warnings denied and public/private API documentation. Build WASM first with the pinned packager when
 verifying a release runtime. Tests must use synthetic content inside temporary consumer roots.
 
+The shared byte-reader tests separately enforce content/size limits and the retained allocation
+budget documented in [sourcefield-io](../crates/sourcefield-io/README.md). That budget is measured
+against the pinned toolchain; it is not a claim about exact standard-library allocation behavior.
+
 Release gates additionally build and smoke-test the executable on each supported native platform.
 They require all native assets and the complete browser bundle from one commit. Local packaging
 and mocked trust-command tests do not substitute for hosted attestation verification.

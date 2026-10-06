@@ -41,3 +41,6 @@ workflow checks crates.io and fails if a reviewed update is needed. Run
 `python3 scripts/tool_versions.py --check` to check locally, or `--update` to prepare the pin change.
 Review the diff, install the resulting version, rebuild WASM and run verification before proposing
 its PR. A registry response never installs a tool or merges a change automatically.
+
+See [repository settings](docs/repository-settings.md) for the required main checks and the limits
+of CodeQL Default Setup on external fork contributions.

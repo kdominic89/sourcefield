@@ -14,19 +14,17 @@ and levels of experience. This applies to issues, pull requests, reviews and oth
 
 ## Reporting a concern
 
-A private reporting channel is not currently available. Please do not post sensitive information
-in public issues.
+Report conduct concerns privately to [kdominic-git@tuta.com](mailto:kdominic-git@tuta.com).
+Please do not post sensitive information in public issues.
 
-Once a private channel is published here, include relevant links or context and share only the
-personal information needed to understand the situation. Reports should be shared only as needed
-to investigate or address the concern.
+Include relevant links or context and share only the personal information needed to understand the
+situation. Reports should be shared only as needed to investigate or address the concern.
 
 ## Maintainer response
 
 The maintainer may clarify expectations, request a change, remove inappropriate content, or restrict
 participation when needed to protect the community. The response should reflect the severity,
 context and any repeated behavior. Where practical, explain the decision to those involved.
-Once established, the private reporting channel will also accept requests for clarification or
-reconsideration.
+Use the same private contact for requests for clarification or reconsideration.
 
 For a software vulnerability, follow [SECURITY.md](SECURITY.md).

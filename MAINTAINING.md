@@ -2,9 +2,10 @@
 
 ## Release prerequisites
 
-Create the public `kdominic89/sourcefield` remote only after authorization. Enable immutable releases,
-configure the protected `release` environment, and review who may push version tags or approve its
-jobs. Set the repository variable `SOURCEFIELD_IMMUTABLE_RELEASES` to `true` after checking the setting.
+Before a release, verify the controls on the public `kdominic89/sourcefield` repository against
+[repository-settings.md](docs/repository-settings.md). Confirm immutable releases and the protected
+`release` environment, and review who may push version tags or approve its jobs. Set the repository
+variable `SOURCEFIELD_IMMUTABLE_RELEASES` to `true` only after checking the setting.
 The variable records operator setup; it is not API proof of the setting. The settings endpoint needs
 administration-read permission, which the publication token intentionally lacks. The workflow verifies
 the actual immutable release immediately after publication and reports failure if verification fails.
@@ -21,9 +22,9 @@ verification, builds and smoke-tests all five native targets, packages the compl
 runtime, attests every archive and assembles a complete draft before publication. A missing target
 blocks the release. Failed uploads leave a draft. Existing published releases are never overwritten.
 
-A workflow file is not evidence that these hosted jobs have run. Until a remote, protected environment
-and approved tag exist, local verification covers packaging and trust/failure tests; hosted native
-matrix execution, attestations and actual publication remain observable release gates.
+A workflow file or configured repository is not evidence that hosted release jobs have run. Local
+verification covers packaging and trust/failure tests. An approved version tag must still pass the
+hosted native release matrix, attestations and actual publication gates.
 
 ## Consumer rollout
 
@@ -63,8 +64,9 @@ actual WASM/browser bundle. Dependabot remains enabled for subsequent updates.
 
 ## Public documentation
 
-Before publication, verify the private contact in SECURITY.md and CODE_OF_CONDUCT.md. If GitHub
-private vulnerability reporting is enabled, check its actual availability before advertising it.
+Keep the private conduct-reporting email in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) current.
+Software vulnerabilities use the GitHub private reporting link in [SECURITY.md](SECURITY.md);
+verify that repository feature remains enabled and the link remains available.
 Keep the README quickstart executable from a clean checkout and a new temporary directory.
 
 The three SVGs in `docs/preview/` are intentional documentation assets generated from the synthetic

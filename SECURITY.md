@@ -2,14 +2,13 @@
 
 ## Reporting a vulnerability
 
-A private reporting channel is not currently available. Please do not post sensitive information
-in public issues.
+Report vulnerabilities privately through
+[GitHub private vulnerability reporting](https://github.com/kdominic89/sourcefield/security/advisories/new).
+Do not post sensitive information in public issues or pull requests.
 
-Once a private channel is published here, include the affected version or commit, minimal reproduction
-steps, prerequisites and expected impact. Use synthetic inputs and redact tokens, private captures
-and personal data. Coordinate disclosure with the maintainer.
-
-GitHub private vulnerability reporting is not assumed to be enabled. No response time is promised.
+Include the affected version or commit, minimal reproduction steps, prerequisites and expected impact.
+Use synthetic inputs and redact tokens, private captures and personal data. Coordinate disclosure with
+the maintainer. No response time is promised.
 
 ## Versions and fixes
 

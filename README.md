@@ -88,8 +88,9 @@ browser/WASM bundle. Consumers pin `sourcefield.lock.json` and the corresponding
 commit. The bootstrap verifies release integrity and build provenance before extraction or execution.
 See [distribution](docs/distribution.md) for installation and the reviewed pin-update procedure.
 
-This checkout does not imply that a remote or release has been published. Consumer workflow examples
-are inert templates until an actual verified release and its commit are selected.
+The source repository is public. A checkout does not establish that a verified release is available.
+Consumer workflow examples remain inert templates until an actual verified release and its commit
+are selected.
 
 ## Verification and maintenance
 
@@ -97,13 +98,14 @@ Run `bash scripts/verify.sh` for Rust checks, positive/negative tests, browser m
 API documentation. Browser execution and performance measurements are documented in
 [verification](docs/verification.md). Read [CONTRIBUTING.md](CONTRIBUTING.md),
 [ARCHITECTURE.md](ARCHITECTURE.md) and [MAINTAINING.md](MAINTAINING.md) before changing public contracts.
+[Repository settings](docs/repository-settings.md) describes enforced checks, release approval and tool updates.
 
 ## Contributing and reporting
 
 Use [bug reports and feature requests](https://github.com/kdominic89/sourcefield/issues) for public
 feedback. Follow the [contribution guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
-See [SECURITY.md](SECURITY.md) for reporting guidance and the pending private-contact setup.
-Do not post vulnerability details in public issues.
+Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/kdominic89/sourcefield/security/advisories/new).
+See [SECURITY.md](SECURITY.md) for scope and reporting guidance. Do not post vulnerability details in public issues.
 See [CHANGELOG.md](CHANGELOG.md) for unreleased changes.
 
 Sourcefield is licensed under [MIT](LICENSE).

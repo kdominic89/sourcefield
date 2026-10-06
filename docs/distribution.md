@@ -97,3 +97,21 @@ Required remote organization imports are an input trust boundary, not optional o
 A failed online import prevents candidate publication even when observation fallback is permitted.
 Provision complete captured imports for offline generation; locked offline replay additionally enforces
 recorded input and generator identity. An observation cache cannot replace missing imported configuration.
+
+## Publisher approval
+
+The `release` environment requires approval by the repository owner. Self-review is permitted
+because the owner is currently the only maintainer. Disable administrator bypass through the
+GitHub environment UI before publication. Its deployment policy accepts version-tag refs matching `v*`; the workflow
+itself starts only for `v[0-9]*` tags. Tag creation is owner-restricted independently from rules that
+prevent existing version tags from being updated or deleted. A tag pattern alone does not prove
+that its commit belongs to main: select an already merged, verified main commit for publication.
+
+The repository's immutable-release feature must be enabled before setting
+`SOURCEFIELD_IMMUTABLE_RELEASES=true`. This variable confirms the inspected setting; it does not
+activate immutability. The publication script refuses to publish without the exact confirmation.
+Approval, uploaded artifacts and configured settings do not by themselves prove a successful
+immutable release. Verify a separately authorized publication and its release/asset attestations
+before selecting it in consumer locks.
+
+[Repository settings](repository-settings.md) records the contribution and release controls.

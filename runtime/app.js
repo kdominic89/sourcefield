@@ -1118,7 +1118,43 @@ function renderNavigation() {
 function parseProfileSvg(source) {
     // Chromium evaluates SVG style policy during XML parsing, before the detached tree is imported.
     // The browser owns these animations in its external stylesheet, so remove the generated CSS first.
-    const markup = source.replace(/<style(?:\s[^>]*)?>[\s\S]*?<\/style\s*>/gi, '');
+    const retained = [];
+    let cursor = 0;
+    let styleOpen = false;
+
+    for (const match of source.matchAll(/<style(?:\s[^<>]*)?>|<\/style\s*>/gi)) {
+        if (match[0].startsWith('</')) {
+            if (!styleOpen) throw new Error('Invalid profile SVG');
+
+            cursor = match.index + match[0].length;
+            styleOpen = false;
+        } else {
+            if (styleOpen) throw new Error('Invalid profile SVG');
+
+            retained.push(source.slice(cursor, match.index));
+            styleOpen = true;
+        }
+    }
+
+    if (styleOpen) throw new Error('Invalid profile SVG');
+
+    retained.push(source.slice(cursor));
+    const markup = retained.join('');
+
+    // Reject style syntax left or recreated by deletion, including qualified XML names.
+    // DTD expansion and stylesheet instructions must not bypass this pre-parse boundary.
+    if (/<\/?(?:[^<>\s]*:)?style(?:[\s/>]|$)/i.test(markup) ||
+        /<!DOCTYPE|<\?xml-stylesheet\b/i.test(markup)) {
+        throw new Error('Invalid profile SVG');
+    }
+
+    // Attribute styles also trigger CSP during XML parsing; quoted values are not attribute names.
+    for (const tag of markup.matchAll(/<(?![/?!\s])(?:[^<>"']|"[^"<]*"|'[^'<]*')*>/g)) {
+        for (const attribute of tag[0].matchAll(/"[^"]*"|'[^']*'|(\s(?:[^\s"'=<>]*:)?style\s*=)/gi)) {
+            if (attribute[1]) throw new Error('Invalid profile SVG');
+        }
+    }
+
     const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
     const svg = parsed.documentElement;
 

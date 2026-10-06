@@ -104,3 +104,24 @@ browser run and requires the `real Rust producer history archive selected` resul
 Missing producer output or missing browser evidence fails the gate; it cannot silently skip this check.
 For an individual browser investigation, export the same variable when generating the Rust fixture
 and when invoking `scripts/verify-browser.mjs`.
+
+## Icon catalog coverage
+
+The shared browser fixture gate selects both built-ins and a consumer-owned icon in all three
+profile compositions, including namespaced organization imports. `--require-icons` makes missing
+fixture coverage fail instead of silently skipping it. Browser checks cover approved geometry,
+clipping, both themes, static output, fixed phases, pause/resume and reduced motion. Visibility-event
+probes exercise timing restoration; they do not claim to measure operating-system background
+throttling. Native tests cover strict parsing, numeric and expansion budgets, semantic identity,
+shared definitions, import collisions, extraction and captured replay.
+
+To measure rendering after building a representative state, use:
+
+```sh
+cargo run --release --locked -p sourcefield-render --example render_measure -- STATE.json 100 icons
+```
+
+This compares legacy, built-in and shared-custom triplets with the same allocator instrumentation
+and output hashing. Preparation allocations must agree, output hashes must remain stable and
+retained bytes after output disposal must be zero. Compare timing only within matching harness
+modes and inputs; these measurements do not establish a universal speedup or process RSS.

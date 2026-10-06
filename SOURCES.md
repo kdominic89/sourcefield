@@ -108,3 +108,20 @@ The official npm metadata for both packages in the current browser lockfile was 
 their exact resolved URLs and integrity values. Both matched; no package version changed.
 The official full wasm-pack inventory contained the existing non-yanked pin and matched the
 reported latest stable release. The tool continues to reject automatic downgrades.
+
+## Icon catalog contracts checked on 2026-10-06
+
+- Strict fields and tagged variants: https://serde.rs/container-attrs.html and https://serde.rs/enum-representations.html
+- SVG path semantics: https://www.w3.org/TR/SVG2/paths.html#PathDataBNF
+- SVG geometry: https://www.w3.org/TR/SVG2/shapes.html
+- Event attributes execute code: https://www.w3.org/TR/SVG2/interact.html#EventAttributes
+- SVG resource references: https://www.w3.org/TR/SVG2/linking.html
+- TOML accepts nonfinite floats: https://toml.io/en/v1.1.0#float
+- Explicit finite-number checks: https://doc.rust-lang.org/std/primitive.f32.html#method.is_finite
+- Respecting reduced motion: https://www.w3.org/WAI/WCAG22/Techniques/css/C39.html
+- Document visibility events and their bubbling behavior: https://html.spec.whatwg.org/multipage/interaction.html#page-visibility
+
+The catalog uses typed absolute commands and semantic paint enums instead of parsing arbitrary SVG.
+An element-name allowlist alone would still admit executable attributes or external references.
+Geometry admission therefore happens in the shared core, before SVG rendering, and the
+existing browser SVG boundary remains in place. No new dependency is required.

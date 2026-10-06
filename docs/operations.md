@@ -88,10 +88,33 @@ project markers while preserving its original text. Duplicate headings, partial 
 intervening prose fail with a diagnostic. Already marked sections remain unchanged. Normal
 generation requires explicit complete marker pairs and never guesses authored boundaries.
 
-To extract an existing organization into canonical content, use `sourcefield extract-organization
---config PATH --organization ID --destination NEWDIR`. This emits `profile.toml` and
-`organization.toml` while retaining consumer-owned positions, radii and weights. Review the extracted
-facts and privacy boundary before adopting them in the owning organization repository.
+## Organization extraction
+
+Use `sourcefield extract-organization --config PATH --organization ID --destination NEWDIR`
+to extract one organization into canonical content. Add `--assets PATH` when its existing capture
+and layout are outside the default `assets` directory; this path is relative to `--root`, as for
+`generate`. The destination must be new. Extraction reads local manifests and existing remote captures
+offline, validates the complete composition, and emits `profile.toml` and `organization.toml` while
+retaining consumer-owned positions, radii and weights.
+
+Only the selected organization becomes the new local `organization.toml` import. Other imports
+retain their order, source declarations and shared technology bindings. Retained relative local
+paths are rebased to the original live files from the new profile directory; those files are not
+copied or frozen. Subsequent canonical changes remain visible to normal generation. Remote
+repository/ref declarations and their captured commit, repository identity, digest and manifest bytes
+are preserved. Extracting an already imported organization retains its complete canonical manifest,
+including local IDs and definitions that no project currently uses.
+
+The export also includes `<assets>/import-capture.json` and `<assets>/layout.json` as owned generated
+inputs. Use the same `--assets` value for subsequent generation in `NEWDIR`. These files preserve
+offline remote resolution and stable placement, but do not create a locked replay record for the new
+profile. Supply a suitable observation snapshot for an offline generation, then retain that
+successful generation's record for future `--offline --locked` runs. The authored TOML files remain
+outside generated-file ownership.
+
+Invalid manifests, missing or inconsistent remote captures, and invalid asset destinations fail
+before creating the export directory. Review the extracted facts and privacy boundary before
+adopting them in the owning organization repository.
 
 ## Publication and interruption
 

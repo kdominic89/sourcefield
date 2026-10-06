@@ -48,6 +48,52 @@ pub enum ValidationError {
 /// Project identities and endpoint counts are content, not schema invariants. This permits
 /// legitimate additions and renames without changing validation code.
 pub fn validate_config(config: &Config) -> Result<(), ValidationError> {
+    validate_configuration(config, IconReferences::Resolved)
+}
+
+/// Defer only selected import namespaces until canonical manifests have been composed.
+pub(crate) fn validate_authored_config(config: &Config) -> Result<(), ValidationError> {
+    validate_configuration(config, IconReferences::Authored)
+}
+
+/// Authored inputs may name selected imports that are unavailable until composition.
+#[derive(Clone, Copy)]
+enum IconReferences {
+    Authored,
+    Resolved,
+}
+
+/// Share every admission check while keeping deferred import references out of rendered usage.
+fn validate_configuration(
+    config: &Config,
+    references: IconReferences,
+) -> Result<(), ValidationError> {
+    crate::validate_icon_catalog(&config.icons)?;
+
+    for icon in config
+        .projects
+        .iter()
+        .filter_map(|project| project.icon.as_deref())
+    {
+        if matches!(references, IconReferences::Authored)
+            && crate::resolve_icon(&config.icons, icon).is_none()
+            && let Some((namespace, _)) = icon.split_once('/')
+            && config.imports.iter().any(|import| import.id == namespace)
+        {
+            crate::icons::validate_icon_id(icon)?;
+        } else {
+            crate::validate_icon_reference(&config.icons, icon)?;
+        }
+    }
+
+    crate::validate_icon_usage(
+        &config.icons,
+        config
+            .projects
+            .iter()
+            .filter_map(|project| project.icon.as_deref())
+            .filter(|icon| crate::resolve_icon(&config.icons, icon).is_some()),
+    )?;
     crate::xml_text::validate(config)?;
 
     let nodes = config
@@ -374,6 +420,20 @@ pub fn validate_config(config: &Config) -> Result<(), ValidationError> {
 /// HTTPS alone is deliberately required for links; arbitrary schemes could execute code when
 /// a state node is rendered as an anchor. Text still requires output-context escaping.
 pub fn validate_state(state: &ProfileState) -> Result<(), ValidationError> {
+    crate::validate_icon_catalog(&state.icons)?;
+
+    for node in &state.nodes {
+        if node.icon.is_some() && node.kind != NodeKind::Project {
+            return Err(ValidationError::InvalidValue(
+                "icon references are supported only on project nodes".into(),
+            ));
+        }
+    }
+
+    crate::validate_icon_usage(
+        &state.icons,
+        state.nodes.iter().filter_map(|node| node.icon.as_deref()),
+    )?;
     crate::xml_text::validate(state)?;
 
     if state.nodes.len() > crate::MAX_GRAPH_NODES || state.edges.len() > crate::MAX_GRAPH_EDGES {

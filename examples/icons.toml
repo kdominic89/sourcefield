@@ -1,0 +1,32 @@
+# Copy this top-level catalog into a profile or canonical organization manifest.
+# Select it on a project with icon = "orbit".
+[icons.orbit]
+radius = 28.0
+
+[[icons.orbit.elements]]
+geometry = { shape = "ellipse", center = [0.0, 0.0], radii = [21.0, 10.0] }
+stroke = "accent"
+stroke_width = 1.2
+opacity = 0.7
+
+[[icons.orbit.elements]]
+geometry = { shape = "path", commands = [
+  { command = "move", to = [0.0, -21.0] },
+  { command = "cubic", control1 = [14.0, -21.0], control2 = [14.0, 21.0], to = [0.0, 21.0] },
+  { command = "cubic", control1 = [-14.0, 21.0], control2 = [-14.0, -21.0], to = [0.0, -21.0] },
+  { command = "close" },
+] }
+stroke = "purple"
+stroke_width = 1.2
+
+[[icons.orbit.elements]]
+geometry = { shape = "circle", center = [0.0, 0.0], radius = 7.0 }
+fill = "surface"
+stroke = "accent"
+stroke_width = 1.5
+
+[[icons.orbit.elements]]
+geometry = { shape = "rect", origin = [18.0, -2.0], size = [4.0, 4.0], corner_radius = 1.0 }
+fill = "blue"
+stroke = "none"
+motion = { kind = "signal", phase = 1 }

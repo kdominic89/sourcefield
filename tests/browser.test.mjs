@@ -40,10 +40,10 @@ async function browserHarness({ reducedMotion = false } = {}) {
             }),
             addEventListener: (event, handler) => handlers.set(`window:${event}`, handler),
         },
-        document: {
+        document: Object.assign(new EventTarget(), {
             querySelector: element, querySelectorAll: () => [],
             createElement: makeElement, body: element('body'),
-        },
+        }),
         performance: { now: () => 0 }, URL,
     });
     vm.runInContext(source, context);
@@ -208,6 +208,38 @@ test('profile animation timing preserves scan speed and safe signal phases', asy
     ]);
     assert.ok(timings.slice(5).every(timing => timing.duration === 3600 && timing.delay === 0));
 });
+
+for (const { name, hidden, reducedMotion, paused } of [
+    { name: 'visible running', hidden: false, reducedMotion: false, paused: false },
+    { name: 'visible paused', hidden: false, reducedMotion: false, paused: true },
+    { name: 'hidden', hidden: true, reducedMotion: false, paused: false },
+    { name: 'reduced motion', hidden: false, reducedMotion: true, paused: false },
+]) {
+    test(`direct document visibility event respects ${name} state`, async () => {
+        const harness = await browserHarness({ reducedMotion });
+        const timing = { duration: 7777, delay: 137 };
+        const svg = harness.context.document.querySelector('#profile-view svg');
+        const running = !reducedMotion && !paused;
+        svg.getAnimations = () => [{
+            animationName: 'icon-signal',
+            effect: {
+                target: { classList: { contains: value => value === 'icon-signal-phase-2' } },
+                updateTiming: update => Object.assign(timing, update),
+            },
+        }];
+        harness.context.document.hidden = hidden;
+        harness.context.initialVisibility = { running, paused };
+        harness.evaluate(`app.state = { canvas: { motion_seconds: 32 } };
+            app.running = initialVisibility.running; app.userPaused = initialVisibility.paused;`);
+
+        harness.context.document.dispatchEvent(new Event('visibilitychange'));
+
+        assert.deepEqual(timing, hidden || reducedMotion
+            ? { duration: 7777, delay: 137 } : { duration: 5400, delay: -3600 });
+        assert.equal(harness.evaluate('app.running'), running);
+        assert.equal(harness.evaluate('app.userPaused'), paused);
+    });
+}
 
 for (const layer of ['overview','systems']) {
  test(`frame simulation follows active layer: ${layer}`, async () => {

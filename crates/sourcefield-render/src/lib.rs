@@ -5,6 +5,7 @@
 use std::{collections::BTreeMap, fmt::Write as _};
 
 mod geometry;
+mod icons;
 mod ornaments;
 mod presentation;
 
@@ -28,6 +29,7 @@ struct Palette {
     background: &'static str,
     secondary: &'static str,
     surface: &'static str,
+    recess: &'static str,
     text: &'static str,
     muted: &'static str,
     quiet: &'static str,
@@ -46,6 +48,7 @@ impl Theme {
                 background: "#050911",
                 secondary: "#0c1222",
                 surface: "#0d1425",
+                recess: "#090f1c",
                 text: "#edf2ff",
                 muted: "#a2acc8",
                 quiet: "#93a3bf",
@@ -59,6 +62,7 @@ impl Theme {
                 background: "#f5f7fc",
                 secondary: "#e9eef8",
                 surface: "#ffffff",
+                recess: "#e2e8f3",
                 text: "#11182b",
                 muted: "#47536d",
                 quiet: "#53617b",
@@ -74,7 +78,7 @@ impl Theme {
 
 /// Render the approved field composition from public state.
 ///
-/// Labels never move; motion is restricted to decorative rings and ownership traces.
+/// Labels never move; motion is restricted to decorative rings, signals, and ownership traces.
 /// `motion = false` omits animation rules entirely. Configuration controls optional modules.
 /// State produced by `sourcefield_core` supplies validated coordinates and HTTPS links.
 pub fn render_svg(state: &ProfileState, theme: Theme, motion: bool) -> String {
@@ -154,7 +158,7 @@ fn render_prepared(prepared: &PreparedPresentation<'_>, theme: Theme, motion: bo
 
     header(&mut output, state, palette);
     output.push_str("</g>");
-    field(&mut output, state, nodes, palette, policy);
+    field(&mut output, state, nodes, palette, policy, motion);
     let _ = write!(output, r#"<g transform="scale({scale} {scale})">"#);
     publications(&mut output, state, nodes, palette, policy);
     let footer_offset = policy.footer_offset;
@@ -231,6 +235,10 @@ fn definitions(output: &mut String, p: Palette, motion: bool, state: &ProfileSta
          *{{animation-play-state:paused!important}}</style>",
         p.purple, p.text
     );
+
+    if motion && icons::has_signals(state) {
+        icons::motion_styles(output);
+    }
 
     if motion {
         let duration = seconds.max(12);
@@ -363,6 +371,7 @@ fn field(
     nodes: &BTreeMap<&str, &Node>,
     p: Palette,
     policy: &Presentation,
+    motion: bool,
 ) {
     let scale = state.canvas.width as f32 / 1800.0;
     let organization_profile = matches!(policy.curve, OwnershipCurve::Sweeping);
@@ -498,7 +507,7 @@ fn field(
     for node in nodes.values().filter(|node| {
         node.show_in_readme && matches!(node.kind, NodeKind::Domain | NodeKind::Project)
     }) {
-        project(output, node, state, p);
+        project(output, node, state, p, motion);
     }
 }
 
@@ -618,7 +627,7 @@ fn node_color(node: &Node, p: Palette) -> &'static str {
 }
 
 /// Keep ornaments inside a translated child, leaving labels stable during rotation.
-fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette) {
+fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette, motion: bool) {
     let scale = state.canvas.width as f32 / 1800.0;
     let actual = (node.x, node.y);
     let color = node_color(node, p);
@@ -652,7 +661,7 @@ fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette) {
     output.push_str(
         "<g data-node-decoration=\"true\" transform=\"translate(0 0)\" aria-hidden=\"true\">",
     );
-    ornaments::render(output, node, radius, state, p);
+    ornaments::render(output, node, radius, state, p, motion);
 
     output.push_str("</g>");
     let mut y = if domain { 91.0 } else { radius + 25.0 };

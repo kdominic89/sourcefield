@@ -67,12 +67,14 @@ For a real consumer, use its checkout as `--root` and its approved configuration
 A normal online refresh uses `--strict-live`; replay of an existing capture uses `--offline --locked`.
 The first synthetic preview uses `--offline` alone because it has no earlier capture to replay.
 See [configuration](docs/configuration.md) for projects, packages and organization imports.
+[Project icons](docs/icons.md) covers the built-in network and database safe, plus consumer-owned
+motifs that can be added through TOML without changing Rust.
 
 ## Ownership
 
 | Sourcefield | Consumer repositories |
 | --- | --- |
-| Model, collection, layout, rendering and browser source | Approved profile facts and presentation |
+| Model, collection, layout, rendering and browser source | Approved profile facts, presentation and custom icons |
 | Versioned configuration and migration tools | Canonical organization manifests |
 | Native CLI and complete browser release bundle | Captured observations, imports and history |
 | Generation, validation and release workflows | Generator lock, schedule and publication permissions |

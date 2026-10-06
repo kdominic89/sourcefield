@@ -92,17 +92,19 @@ async function checkMotion(page, state) {
 
                 return { delay: effectTiming.delay, duration: effectTiming.duration, lo, hi };
             });
-            const scan = animations.find(animation => animation.effect.target.classList.contains('scan'));
+            const scans = animations.filter(animation => animation.effect.target.classList.contains('scan'));
+            const expectedScans = projects.filter(project => project.visual === 'trace' && !project.icon).length;
+            const scanDurations = scans.map(animation => animation.effect.getTiming().duration);
 
-            if ((scan && scan.effect.getTiming().duration !== 24000) ||
-                (personalDomains.length > 0 && state.canvas.show_activity_orbit && !scan)) {
-                throw new Error('Wrong scan duration');
+            if (scans.length !== expectedScans || scanDurations.some(duration => duration !== 24000)) {
+                throw new Error(`Wrong scan count or duration: expected ${expectedScans}, got ${scanDurations}`);
             }
 
             return {
                 directions,
                 timing,
-                scanDuration: scan?.effect.getTiming().duration ?? null,
+                scanDuration: scanDurations[0] ?? null,
+                scanDurations,
                 inlineStyles: svg.querySelectorAll('[style]').length,
             };
         } finally {

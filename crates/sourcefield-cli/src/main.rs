@@ -79,6 +79,9 @@ enum Command {
     ExtractOrganization {
         #[arg(long)]
         config: PathBuf,
+        /// Root-relative captured inputs and layout directory, retained beneath the export.
+        #[arg(long, default_value = "assets")]
+        assets: PathBuf,
         #[arg(long)]
         organization: String,
         #[arg(long)]
@@ -160,13 +163,19 @@ async fn main() -> Result<()> {
 
         Command::ExtractOrganization {
             config,
+            assets,
             organization,
             destination,
-        } => extract::export(
-            &load_config(root.join(config))?,
-            &organization,
-            &root.join(destination),
-        ),
+        } => {
+            extract::export_from_path(
+                &root,
+                &root.join(config),
+                &root.join(assets),
+                &organization,
+                &root.join(destination),
+            )
+            .await
+        }
 
         Command::Migrate {
             source,

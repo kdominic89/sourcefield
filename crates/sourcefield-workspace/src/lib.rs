@@ -23,6 +23,13 @@ const LOCK: &str = ".sourcefield-lock";
 const OWNERSHIP: &str = ".sourcefield-owned.json";
 const MAX_METADATA_BYTES: u64 = 8 * 1024 * 1024;
 
+/// Check the same lexical, portable, and reserved-name rules used by publication paths.
+///
+/// This does not inspect the filesystem or guarantee that parent directories are free of symlinks.
+pub fn validate_output_path(path: impl AsRef<Path>) -> Result<()> {
+    relative_key(path.as_ref()).map(|_| ())
+}
+
 /// Files owned by a successfully published generator run.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -694,9 +701,13 @@ fn trusted_system_alias(path: &Path) -> Result<bool> {
 fn relative_key(path: &Path) -> Result<String> {
     let key = normalized_key(path)?;
 
+    // Portable output keys must not alias control files on case-insensitive filesystems.
     ensure!(
-        !key.split('/')
-            .any(|part| matches!(part, CONTROL | LOCK | OWNERSHIP | ".git")),
+        !key.split('/').any(|part| {
+            [CONTROL, LOCK, OWNERSHIP, ".git"]
+                .iter()
+                .any(|reserved| part.eq_ignore_ascii_case(reserved))
+        }),
         "reserved destination: {key}"
     );
 
@@ -1442,5 +1453,38 @@ mod tests {
 
         assert!(result.is_err());
         assert!(root.0.join(LOCK).exists());
+    }
+
+    #[test]
+    fn output_path_validation_accepts_portable_relative_destinations() {
+        // Arrange
+        let paths = ["assets", "evidence/profile/layout.json", "profile.toml"];
+
+        // Act
+        let results = paths.map(validate_output_path);
+
+        // Assert
+        assert!(results.into_iter().all(|result| result.is_ok()));
+    }
+
+    #[test]
+    fn output_path_validation_rejects_traversal_controls_and_nonportable_names() {
+        // Arrange
+        let paths = [
+            "../assets",
+            "/assets",
+            "nested/.git/assets",
+            "nested/.GIT/assets",
+            "nested/.sourcefield-lock/capture",
+            "nested/.SOURCEFIELD-LOCK/capture",
+            "NUL/layout.json",
+            "assets./layout.json",
+        ];
+
+        // Act
+        let results = paths.map(validate_output_path);
+
+        // Assert
+        assert!(results.into_iter().all(|result| result.is_err()));
     }
 }

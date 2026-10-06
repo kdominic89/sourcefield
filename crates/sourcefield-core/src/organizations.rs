@@ -20,6 +20,9 @@ pub type LayoutAssignments = BTreeMap<String, [f32; 2]>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationManifest {
+    /// Organization-local icon definitions qualified together with project references.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub icons: crate::IconCatalog,
     /// Public maintainer attribution shared by all consumers of this organization.
     #[serde(default)]
     pub maintainer: Option<crate::MaintainerConfig>,
@@ -48,6 +51,9 @@ pub struct OrganizationManifest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationProject {
+    /// Optional built-in or organization-local icon key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     /// Stable organization-local project identifier.
     pub id: String,
     /// Full accessible project label.
@@ -156,6 +162,7 @@ pub fn parse_organization(text: &str) -> Result<OrganizationManifest, crate::Con
     }
 
     validate_local_id(&manifest.id).map_err(crate::ConfigError::Validation)?;
+    validate_manifest_icons(&manifest).map_err(crate::ConfigError::Validation)?;
 
     Ok(manifest)
 }
@@ -170,6 +177,7 @@ pub fn compose_organizations(
     organizations: &[OrganizationManifest],
     previous: &LayoutAssignments,
 ) -> Result<(Config, LayoutAssignments), ValidationError> {
+    crate::validate_icon_catalog(&base.icons)?;
     let mut config = base.clone();
     let mut assignments = BTreeMap::new();
     let mut unused_bindings = base
@@ -210,6 +218,21 @@ pub fn compose_organizations(
         }
 
         validate_local_id(&organization.id)?;
+        validate_manifest_icons(organization)?;
+
+        for (key, definition) in &organization.icons {
+            let key = scoped(&organization.id, key);
+
+            if config
+                .icons
+                .insert(key.clone(), definition.clone())
+                .is_some()
+            {
+                return Err(ValidationError::DuplicateId(key));
+            }
+        }
+
+        crate::validate_icon_catalog(&config.icons)?;
 
         if !scopes.insert(organization.id.clone()) {
             return Err(ValidationError::DuplicateId(organization.id.clone()));
@@ -376,6 +399,13 @@ pub fn compose_organizations(
             }
 
             config.projects.push(ProjectConfig {
+                icon: project.icon.as_ref().map(|icon| {
+                    if icon.starts_with("builtin:") {
+                        icon.clone()
+                    } else {
+                        scoped(&organization.id, icon)
+                    }
+                }),
                 id,
                 label: project.label.clone(),
                 surface_label: project.surface_label.clone(),
@@ -561,7 +591,8 @@ fn scoped(scope: &str, id: &str) -> String {
     format!("{scope}/{id}")
 }
 
-fn validate_local_id(id: &str) -> Result<(), ValidationError> {
+/// Preserve organization scopes and organization-local IDs across their shared consumers.
+pub(crate) fn validate_local_id(id: &str) -> Result<(), ValidationError> {
     if id.is_empty()
         || !id
             .bytes()
@@ -759,4 +790,25 @@ fn technology_reference(config: &Config, scope: &str, local_id: &str) -> String 
         .get(&canonical_id)
         .cloned()
         .unwrap_or(canonical_id)
+}
+
+/// A manifest can reference only its own local definitions or the reserved built-in catalog.
+fn validate_manifest_icons(manifest: &OrganizationManifest) -> Result<(), ValidationError> {
+    for key in manifest.icons.keys() {
+        crate::validate_local_icon_id(key)?;
+    }
+
+    crate::validate_icon_catalog(&manifest.icons)?;
+
+    for project in &manifest.projects {
+        if let Some(icon) = &project.icon {
+            if !icon.starts_with("builtin:") {
+                crate::validate_local_icon_id(icon)?;
+            }
+
+            crate::validate_icon_reference(&manifest.icons, icon)?;
+        }
+    }
+
+    Ok(())
 }

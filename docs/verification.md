@@ -106,8 +106,13 @@ covered by `scripts/verify-browser.mjs` and the shared fixture gate.
 
 `python3 scripts/verify_publication.py --binary target/debug/sourcefield` exercises two generations
 and publications separated by genuine fresh clones. Git operations are confined to temporary fixture
-repositories with a local bare remote. Runtime WASM/glue remains ignored while ownership is retained.
-The test proves a second checkout can regenerate those missing files.
+repositories with a local bare remote. The fixture commits the synthetic observation bytes at
+`assets/source-snapshot.json` with its matching ownership digest, modeling a generated consumer
+that already retains observations at the production-selected input path.
+Each checkout, candidate and publication must preserve those bytes exactly. Runtime WASM/glue
+remains ignored while ownership is retained; the second checkout regenerates those missing files.
+This executable publication check is separate from `scripts/verify.sh`; run it explicitly after
+building the matching native/WASM pair to cover the workflow's fresh-checkout path locally.
 
 Pull requests run native Rust tests on Linux, macOS and Windows, plus portable Python distribution
 checks. Linux additionally runs the complete WASM/browser gate. Hosted results are required before

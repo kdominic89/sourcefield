@@ -7,6 +7,8 @@ version tag, downloadable artifact or hosted deployment exists.
 
 ### Fixed
 
+- Repair the fresh-checkout publication verification fixture to retain its explicitly selected
+  synthetic observation capture and check byte identity across generation and publication.
 - Preserve consumer-owned technology affinities to selected imported organizations without allowing
   consumers to claim canonical project or publication ownership. Validate supplied maintainer roles
   consistently across authored configuration, canonical imports and generated state. Existing history

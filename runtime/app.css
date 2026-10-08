@@ -376,7 +376,8 @@ backdrop filters add a needless compositing layer. */
 
 .detail-panel {
   position: absolute;
-  z-index: 10;
+  /* The fixed inspector must clear header/footer chrome at narrow viewport edges. */
+  z-index: 30;
   right: 24px;
   top: 24px;
   bottom: 24px;

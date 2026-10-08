@@ -124,6 +124,33 @@ export async function runInteractionChecks({ browser, base, output }) {
         assert.equal(await page.locator('[data-layer="capabilities"]').isVisible(), true);
         results.push({ check: 'mobile semantic reflow, no horizontal overflow, footer and all layers accessible' });
 
+        // Focus first because a locator click would scroll the header out of the overlap regression.
+        await projectButton.focus();
+        await page.evaluate(async () => {
+            window.scrollTo(0, 0);
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        });
+
+        await page.keyboard.press('Enter');
+        assert.equal(await page.evaluate(() => window.scrollY), 0);
+        assert.equal(await page.locator('#detail-panel').getAttribute('aria-hidden'), 'false');
+        const inspectorClose = page.locator('#detail-close');
+        await page.waitForFunction(() => document.querySelector('#detail-panel').getAnimations()
+            .every(animation => animation.playState !== 'running'));
+        await page.screenshot({ path: join(output, 'browser-mobile-inspector.png') });
+
+        const closeIsUnobscured = await inspectorClose.evaluate(element => {
+            const bounds = element.getBoundingClientRect();
+            const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+
+            return hit?.closest('button') === element;
+        });
+
+        assert.equal(closeIsUnobscured, true);
+        await inspectorClose.click();
+        assert.equal(await page.locator('#detail-panel').getAttribute('aria-hidden'), 'true');
+        results.push({ check: 'mobile inspector close stays above header chrome and accepts pointer input' });
+
         await page.setViewportSize({ width: 1500, height: 1100 });
         await page.locator('[data-layer="systems"]').click();
 
@@ -293,7 +320,7 @@ export async function runInteractionChecks({ browser, base, output }) {
 
         assert.deepEqual(errors, []);
         results.push({ check: 'normal load has no browser errors or CSP violations', errors });
-        assert.equal(results.length, producerDirectory ? 15 : 14);
+        assert.equal(results.length, producerDirectory ? 16 : 15);
 
         return { results };
     } finally {

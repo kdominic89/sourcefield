@@ -15,6 +15,10 @@ version tag, downloadable artifact or hosted deployment exists.
   state hashes and output. After the first supporting generator upgrade, caption edits require only
   normal generation with the same build and pins.
 
+### Fixed
+
+- Keep the mobile inspector above header/footer chrome so its close button accepts pointer input.
+
 ## 0.1.1 - 2026-10-08
 
 ### Fixed

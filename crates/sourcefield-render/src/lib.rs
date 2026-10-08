@@ -914,7 +914,7 @@ fn personal(
 ) {
     use sourcefield_core::{
         FOOTER_DETAIL_COLUMNS, FOOTER_HARDWARE_COLUMNS, FOOTER_LABEL_COLUMNS,
-        FOOTER_LEARNING_COLUMNS, next_interest_y,
+        FOOTER_LEARNING_COLUMNS, next_visible_interest_y,
     };
 
     path(output, "M64 1337H1736", p.grid, ".5", "");
@@ -956,16 +956,20 @@ fn personal(
             );
             let summary_y = y + lines.saturating_sub(1) as f32 * 24.0 + 25.0;
 
-            footer_text(
-                output,
-                (66.0, summary_y),
-                &interest.summary,
-                15,
-                p.muted,
-                (FOOTER_DETAIL_COLUMNS, 22.0),
-                "",
-            );
-            y = next_interest_y(y, interest);
+            // The lead row is the compact overview; only subsequent rows carry descriptions.
+            if row > 0 {
+                footer_text(
+                    output,
+                    (66.0, summary_y),
+                    &interest.summary,
+                    15,
+                    p.muted,
+                    (FOOTER_DETAIL_COLUMNS, 22.0),
+                    "",
+                );
+            }
+
+            y = next_visible_interest_y(y, interest, row);
         }
     }
 
@@ -1212,7 +1216,14 @@ fn open_link(output: &mut String, url: Option<&str>) -> bool {
 }
 
 /// Borrow XML content rather than allocate an escaped copy for every label and attribute.
-fn xml(value: &str) -> Escaped<'_> {
+fn xml(value: &str) -> impl std::fmt::Display + '_ {
+    escape_xml(value)
+}
+
+/// Escape borrowed text for XML or HTML text and quoted attribute contexts without a copy.
+///
+/// This encoder is not suitable for JavaScript, CSS, or unquoted attributes.
+pub fn escape_xml(value: &str) -> impl std::fmt::Display + '_ {
     Escaped(value)
 }
 

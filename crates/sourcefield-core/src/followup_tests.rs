@@ -332,3 +332,79 @@ fn third_review_discovery_into_empty_group_uses_approved_offset() {
         Some([anchor[0] + 16.0, anchor[1] + 50.0])
     );
 }
+
+#[test]
+fn supported_observation_snapshot_schema_builds_public_state() {
+    // Arrange
+    let config = config();
+    let snapshot = Snapshot::default();
+
+    // Act
+    let result = build_state(&config, &snapshot, "test");
+
+    // Assert
+    let state = result.unwrap();
+    assert_eq!(state.schema, STATE_SCHEMA_VERSION);
+    assert!(!state.nodes.is_empty());
+}
+
+#[test]
+fn zero_observation_snapshot_schema_reports_actual_version() {
+    // Arrange
+    let config = config();
+    let snapshot = Snapshot {
+        schema_version: 0,
+        ..Snapshot::default()
+    };
+
+    // Act
+    let result = build_state(&config, &snapshot, "test");
+
+    // Assert
+    let error = result.unwrap_err();
+    assert!(matches!(error, GraphError::UnsupportedSnapshotVersion(0)));
+    assert_eq!(
+        error.to_string(),
+        "unsupported observation snapshot schema: 0; expected 1"
+    );
+}
+
+#[test]
+fn unknown_observation_snapshot_schema_reports_actual_version() {
+    // Arrange
+    let config = config();
+    let snapshot = Snapshot {
+        schema_version: 999,
+        ..Snapshot::default()
+    };
+
+    // Act
+    let result = build_state(&config, &snapshot, "test");
+
+    // Assert
+    let error = result.unwrap_err();
+    assert!(matches!(error, GraphError::UnsupportedSnapshotVersion(999)));
+    assert_eq!(
+        error.to_string(),
+        "unsupported observation snapshot schema: 999; expected 1"
+    );
+}
+
+#[test]
+fn unsupported_configuration_keeps_configuration_diagnosis() {
+    // Arrange
+    let mut config = config();
+    config.version = 999;
+    let snapshot = Snapshot::default();
+
+    // Act
+    let result = build_state(&config, &snapshot, "test");
+
+    // Assert
+    let error = result.unwrap_err();
+    assert!(matches!(
+        error,
+        GraphError::Validation(ValidationError::UnsupportedVersion)
+    ));
+    assert_eq!(error.to_string(), "configuration version must be 1");
+}

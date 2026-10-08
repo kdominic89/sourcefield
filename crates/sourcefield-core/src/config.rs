@@ -25,8 +25,9 @@ pub enum ConfigError {
 
 /// Read typed TOML configuration without mutating the source file.
 ///
-/// Parsing rejects invalid public text and references, except icon keys in selected import
-/// namespaces. Composition resolves those keys and applies full catalog usage limits.
+/// Parsing rejects invalid public text and references, except technology affinities and icon
+/// keys in explicitly selected import namespaces. Composition requires the actual domains and
+/// definitions, validates their ownership, and applies full catalog usage limits.
 pub fn load_config(path: impl AsRef<Path>) -> Result<Config, ConfigError> {
     let path = path.as_ref();
     let text = fs::read_to_string(path).map_err(|source| ConfigError::Read {

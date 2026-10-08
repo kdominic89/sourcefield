@@ -209,7 +209,7 @@ fn replay_rejects_tampered_resolved_icon_catalog_without_publication() {
     assert!(!replay.status.success());
     assert!(
         String::from_utf8_lossy(&replay.stderr)
-            .contains("locked replay input digest mismatch: resolved-config.json")
+            .contains("generation provenance input digest mismatch: resolved-config.json")
     );
     assert_eq!(fixture.published(), before);
 }
@@ -233,7 +233,7 @@ fn replay_rejects_changed_authored_icon_reference_without_publication() {
 
     // Assert
     assert!(!replay.status.success());
-    assert!(String::from_utf8_lossy(&replay.stderr).contains("unchanged authored inputs"));
+    assert!(String::from_utf8_lossy(&replay.stderr).contains("authored inputs changed"));
     assert_eq!(fixture.published(), before);
 }
 

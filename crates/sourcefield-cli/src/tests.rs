@@ -3,6 +3,8 @@
 use super::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod history_policy;
+
 /// Each test owns its filesystem to avoid accidental coupling through parallel execution.
 struct TemporaryDirectory(PathBuf);
 
@@ -429,11 +431,14 @@ async fn replay_preserves_previously_approved_private_aggregate_without_credenti
     let mut snapshot: Snapshot = read_json(&assets.join("source-snapshot.json")).unwrap();
     snapshot.private_repository_count = Some(27);
     let state = build_state(&config, &snapshot, "1970-01-01T00:00:00Z").unwrap();
-    fs::write(
-        assets.join("source-snapshot.json"),
-        serde_json::to_vec_pretty(&snapshot).unwrap(),
-    )
-    .unwrap();
+    for name in ["source-snapshot.json", "render-snapshot.json"] {
+        fs::write(
+            assets.join(name),
+            serde_json::to_vec_pretty(&snapshot).unwrap(),
+        )
+        .unwrap();
+    }
+
     fs::write(
         assets.join("profile-state.json"),
         serde_json::to_vec_pretty(&state).unwrap(),
@@ -455,6 +460,7 @@ async fn replay_preserves_previously_approved_private_aggregate_without_credenti
     let mut ownership: serde_json::Value = read_json(&manifest_path).unwrap();
     for name in [
         "source-snapshot.json",
+        "render-snapshot.json",
         "profile-state.json",
         "generation-record.json",
     ] {
@@ -505,7 +511,7 @@ async fn locked_replay_rejects_changed_generator_fingerprint_without_writes() {
 
     let message = result.unwrap_err().to_string();
     assert!(
-        message.contains("recorded generator revision"),
+        message.contains("generator identity mismatch"),
         "unexpected rejection: {message}"
     );
     assert_eq!(actual_owned_digests(&directory.0), before);
@@ -1405,4 +1411,371 @@ fn third_review_service_index_source_warning_is_actionable() {
         "{message}"
     );
     assert!(!message.contains("withheld"), "{message}");
+}
+
+/// Exercise capture selection and publication with only the upstream collector replaced.
+async fn capture_generation(
+    directory: &Path,
+    offline: bool,
+    strict: bool,
+    observed: Result<Snapshot>,
+) -> Result<()> {
+    let config_path = directory.join("profile.toml");
+
+    if !config_path.exists() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        fs::copy(fixtures.join("config/profile.toml"), &config_path)?;
+    }
+
+    generate_with_collection(
+        GenerateOptions {
+            root: directory,
+            config_path: &config_path,
+            fallback_snapshot_path: &directory.join("assets/source-snapshot.json"),
+            assets_dir: &directory.join("assets"),
+            docs_dir: &directory.join("docs"),
+            readme_paths: &[],
+            offline,
+            locked: false,
+            runtime: None,
+            adopt_existing: false,
+            strict_live: strict,
+            private_counts: false,
+            no_history: true,
+        },
+        CollectionAccess::default(),
+        async move |_, _, _, _| observed,
+    )
+    .await
+}
+
+#[tokio::test]
+async fn first_strict_live_refresh_does_not_require_a_capture_or_seed() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+
+    // Act
+    let result = capture_generation(&directory.0, false, true, Ok(live_observation())).await;
+
+    // Assert
+    assert!(result.is_ok(), "first strict live refresh must publish");
+    let snapshot: Snapshot = read_json(&directory.0.join("assets/source-snapshot.json")).unwrap();
+
+    assert_eq!(snapshot.mode, SnapshotMode::Live);
+    assert_eq!(snapshot.fetched_at, "2026-10-01T00:00:00Z");
+}
+
+#[tokio::test]
+async fn first_strict_upstream_failure_is_atomic_after_capture_absence() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+
+    // Act
+    let result = capture_generation(
+        &directory.0,
+        false,
+        true,
+        Err(anyhow::anyhow!("synthetic first collection failure")),
+    )
+    .await;
+
+    // Assert
+    assert!(
+        format!("{:#}", result.unwrap_err()).contains("synthetic first collection failure"),
+        "missing capture must not prevent reaching live collection"
+    );
+    assert!(!directory.0.join(".sourcefield-owned.json").exists());
+    assert!(!directory.0.join("assets").exists());
+    assert!(!directory.0.join("docs").exists());
+    assert!(!directory.0.join(".sourcefield-lock").exists());
+    assert!(!directory.0.join(".sourcefield-transaction").exists());
+}
+
+#[tokio::test]
+async fn preview_preserves_the_live_capture_for_the_next_failed_refresh() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+
+    refresh_fixture(&directory.0, true, Ok(live_observation()))
+        .await
+        .unwrap();
+    let path = directory.0.join("assets/source-snapshot.json");
+    let original = fs::read(&path).unwrap();
+
+    capture_generation(&directory.0, true, false, Err(anyhow::anyhow!("unused")))
+        .await
+        .unwrap();
+    let after_preview = fs::read(&path).unwrap();
+
+    // Act
+    let result = capture_generation(
+        &directory.0,
+        false,
+        false,
+        Err(anyhow::anyhow!("synthetic total outage")),
+    )
+    .await;
+
+    // Assert
+    assert!(
+        after_preview == original,
+        "preview must preserve dated capture bytes"
+    );
+    assert!(result.is_ok(), "preview must retain usable live fallback");
+    let fallback: Snapshot = read_json(&path).unwrap();
+
+    assert_eq!(fallback.mode, SnapshotMode::Fallback);
+    assert_eq!(fallback.fetched_at, "2026-10-01T00:00:00Z");
+    assert!(
+        fallback
+            .sources
+            .iter()
+            .all(|source| source.status == sourcefield_core::DataStatus::Fallback)
+    );
+}
+
+#[tokio::test]
+async fn first_permissive_failure_rejects_absence_without_publishing_outputs() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+
+    // Act
+    let result = capture_generation(
+        &directory.0,
+        false,
+        false,
+        Err(anyhow::anyhow!("synthetic first collection failure")),
+    )
+    .await;
+
+    // Assert
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("no dated observation")
+    );
+    assert!(!directory.0.join(".sourcefield-owned.json").exists());
+    assert!(!directory.0.join("assets").exists());
+    assert!(!directory.0.join("docs").exists());
+}
+
+#[tokio::test]
+async fn malformed_first_capture_is_not_treated_as_absence() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+    let path = directory.0.join("assets/source-snapshot.json");
+
+    fs::create_dir(directory.0.join("assets")).unwrap();
+    fs::write(&path, b"{invalid capture").unwrap();
+
+    // Act
+    let result = capture_generation(&directory.0, false, true, Ok(live_observation())).await;
+
+    // Assert
+    assert!(format!("{:#}", result.unwrap_err()).contains("parse observation capture"));
+    assert!(fs::read(&path).unwrap() == b"{invalid capture");
+    assert!(!directory.0.join(".sourcefield-owned.json").exists());
+    assert!(!directory.0.join("docs").exists());
+}
+
+#[tokio::test]
+async fn nonregular_first_capture_is_not_treated_as_absence() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+
+    fs::create_dir_all(directory.0.join("assets/source-snapshot.json")).unwrap();
+
+    // Act
+    let result = capture_generation(&directory.0, false, true, Ok(live_observation())).await;
+
+    // Assert
+    assert!(
+        format!("{:#}", result.unwrap_err()).contains("observation capture must be a regular file")
+    );
+    assert!(directory.0.join("assets/source-snapshot.json").is_dir());
+    assert!(!directory.0.join(".sourcefield-owned.json").exists());
+    assert!(!directory.0.join("docs").exists());
+}
+
+#[tokio::test]
+async fn readable_owned_capture_allows_strict_refresh() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+    let path = directory.0.join("assets/source-snapshot.json");
+    let original = serde_json::to_vec_pretty(&live_observation()).unwrap();
+    let mut transaction = Transaction::begin(&directory.0).unwrap();
+
+    transaction
+        .stage("assets/source-snapshot.json", &original)
+        .unwrap();
+    transaction.commit().unwrap();
+    assert!(fs::File::open(&path).is_ok(), "fixture must be readable");
+
+    // Act
+    let result = capture_generation(&directory.0, false, true, Ok(live_observation())).await;
+
+    // Assert
+    assert!(result.is_ok(), "readable capture must allow refresh");
+    let snapshot: Snapshot = read_json(&path).unwrap();
+
+    assert_eq!(snapshot.mode, SnapshotMode::Live);
+    assert_eq!(snapshot.fetched_at, "2026-10-01T00:00:00Z");
+    assert!(directory.0.join("docs/profile-state.json").is_file());
+    assert!(!directory.0.join(".sourcefield-lock").exists());
+    assert!(!directory.0.join(".sourcefield-transaction").exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn capture_access_follows_filesystem_permissions_even_when_mode_is_zero() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Arrange
+    let directory = TemporaryDirectory::new();
+    let path = directory.0.join("assets/source-snapshot.json");
+    let original = serde_json::to_vec_pretty(&live_observation()).unwrap();
+    let mut transaction = Transaction::begin(&directory.0).unwrap();
+
+    transaction
+        .stage("assets/source-snapshot.json", &original)
+        .unwrap();
+    transaction.commit().unwrap();
+    let before = fs::read(directory.0.join(".sourcefield-owned.json")).unwrap();
+
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
+    // Privileged processes can read mode-000 files; actual access is the input boundary.
+    let access = fs::File::open(&path);
+
+    // Act
+    let result = capture_generation(&directory.0, false, true, Ok(live_observation())).await;
+
+    // Assert
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    match access {
+        Ok(_) => {
+            assert!(result.is_ok(), "readable capture must allow refresh");
+            let snapshot: Snapshot = read_json(&path).unwrap();
+
+            assert_eq!(snapshot.mode, SnapshotMode::Live);
+            assert_eq!(snapshot.fetched_at, "2026-10-01T00:00:00Z");
+            assert!(directory.0.join("docs/profile-state.json").is_file());
+        }
+        Err(error) => {
+            assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+            assert!(
+                result.unwrap_err().chain().any(|error| {
+                    error
+                        .downcast_ref::<std::io::Error>()
+                        .is_some_and(|error| error.kind() == std::io::ErrorKind::PermissionDenied)
+                }),
+                "inaccessible input must retain its filesystem error"
+            );
+            assert!(fs::read(directory.0.join(".sourcefield-owned.json")).unwrap() == before);
+            assert!(fs::read(&path).unwrap() == original);
+            assert!(!directory.0.join("docs").exists());
+        }
+    }
+
+    assert!(!directory.0.join(".sourcefield-lock").exists());
+    assert!(!directory.0.join(".sourcefield-transaction").exists());
+}
+
+#[tokio::test]
+async fn first_strict_refresh_rejects_unsupported_durable_schema_before_collection() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+    let unsupported = Snapshot {
+        schema_version: 999,
+        ..Snapshot::default()
+    };
+    let mut transaction = Transaction::begin(&directory.0).unwrap();
+
+    transaction
+        .stage(
+            "assets/source-snapshot.json",
+            &serde_json::to_vec(&unsupported).unwrap(),
+        )
+        .unwrap();
+    transaction.commit().unwrap();
+    let before = actual_owned_digests(&directory.0);
+
+    // Act
+    let result = capture_generation(
+        &directory.0,
+        false,
+        true,
+        Err(anyhow::anyhow!("collector must not be reached")),
+    )
+    .await;
+
+    // Assert
+    assert!(
+        format!("{:#}", result.unwrap_err())
+            .contains("unsupported observation capture schema: 999"),
+        "unsupported durable input must be rejected before the collection error"
+    );
+    assert_eq!(actual_owned_digests(&directory.0), before);
+    assert!(!directory.0.join("docs").exists());
+}
+
+#[tokio::test]
+async fn first_strict_refresh_rejects_unsupported_selected_seed_before_collection() {
+    // Arrange
+    let directory = TemporaryDirectory::new();
+    let config_path = directory.0.join("profile.toml");
+    let seed_path = directory.0.join("seed.json");
+    let assets = directory.0.join("assets");
+    let docs = directory.0.join("docs");
+    let unsupported = Snapshot {
+        schema_version: 999,
+        ..Snapshot::default()
+    };
+    let collected = std::cell::Cell::new(false);
+
+    fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../config/profile.toml"),
+        &config_path,
+    )
+    .unwrap();
+    fs::write(&seed_path, serde_json::to_vec(&unsupported).unwrap()).unwrap();
+
+    // Act
+    let result = generate_with_collection(
+        GenerateOptions {
+            root: &directory.0,
+            config_path: &config_path,
+            fallback_snapshot_path: &seed_path,
+            assets_dir: &assets,
+            docs_dir: &docs,
+            readme_paths: &[],
+            offline: false,
+            locked: false,
+            runtime: None,
+            adopt_existing: false,
+            strict_live: true,
+            private_counts: false,
+            no_history: true,
+        },
+        CollectionAccess::default(),
+        async |_, _, _, _| {
+            collected.set(true);
+
+            Ok(live_observation())
+        },
+    )
+    .await;
+
+    // Assert
+    assert!(
+        format!("{:#}", result.unwrap_err())
+            .contains("unsupported observation capture schema: 999")
+    );
+    assert!(
+        !collected.get(),
+        "unsupported selected seed must be admitted before collection"
+    );
+    assert!(!directory.0.join(".sourcefield-owned.json").exists());
+    assert!(!assets.exists());
+    assert!(!docs.exists());
 }

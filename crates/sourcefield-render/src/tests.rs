@@ -418,7 +418,7 @@ fn prepared_rendering_matches_one_shot_flavors() {
 }
 
 #[test]
-fn first_interest_description_is_visible() {
+fn lead_interest_keeps_its_label_without_the_redundant_description() {
     let (_, mut state) = fixture();
     state.interests.push(sourcefield_core::InterestConfig {
         id: "first".into(),
@@ -429,7 +429,8 @@ fn first_interest_description_is_visible() {
 
     let svg = render_svg(&state, Theme::Dark, false);
 
-    assert!(svg.contains(">Previously omitted description</text>"));
+    assert!(svg.contains(">First interest</text>"));
+    assert!(!svg.contains(">Previously omitted description</text>"));
 }
 
 #[test]
@@ -455,7 +456,7 @@ fn expanded_footer_keeps_every_interest_and_bottom_links_inside_canvas() {
     let svg = prepared.render(Theme::Dark, false);
 
     assert!(state.canvas.height > config.render.height);
-    assert!(svg.contains(">Description 0</text>"));
+    assert!(!svg.contains(">Description 0</text>"));
     assert!(svg.contains(">Description 9</text>"));
     assert!(layout.separator_y + prepared.policy.footer_offset + 31.0 < state.canvas.height as f32);
 }

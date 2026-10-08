@@ -238,7 +238,9 @@ fn invalid_recovered_provenance_is_rejected_before_replay() {
     let output = fixture.generate(true);
 
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("requires the recorded generator"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains(
+        "generation provenance generator identity mismatch: use the recorded generator build"
+    ));
     assert_eq!(fixture.published(), before);
     assert!(!fixture.0.join(".sourcefield-transaction").exists());
     assert!(!fixture.0.join(".sourcefield-lock").exists());
@@ -281,7 +283,8 @@ fn changed_replay_input_is_rejected_without_publication() {
 
     assert!(!output.status.success());
     assert!(
-        String::from_utf8_lossy(&output.stderr).contains("locked replay input digest mismatch")
+        String::from_utf8_lossy(&output.stderr)
+            .contains("generation provenance input digest mismatch")
     );
     assert_eq!(fixture.published(), before);
     assert!(!fixture.0.join(".sourcefield-transaction").exists());

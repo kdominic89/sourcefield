@@ -4,6 +4,7 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
+use sourcefield_core::{ProfileVariant, StateProfile};
 use sourcefield_io::{read_file_bounded, sha256_bytes};
 use sourcefield_workspace::Transaction;
 
@@ -51,22 +52,161 @@ pub(crate) fn stage(
     docs: &Path,
     runtime: Option<&Path>,
     adopt: bool,
+    profile: &StateProfile,
 ) -> Result<()> {
-    if let Some(directory) = runtime {
-        let bundle = verified_bundle(directory)?;
-
-        for (name, bytes) in bundle {
-            super::stage_generated(transaction, root, &docs.join(name), &bytes, adopt)?;
-        }
+    let mut bundle = if let Some(directory) = runtime {
+        verified_bundle(directory)?
     } else {
-        for (name, embedded) in FILES {
-            super::stage_generated(transaction, root, &docs.join(name), embedded, adopt)?;
-        }
+        FILES
+            .iter()
+            .map(|(name, bytes)| ((*name).into(), bytes.to_vec()))
+            .collect()
+    };
+
+    // Authenticate the complete unmodified release first. Consumer identity is generated output,
+    // so its digests describe the projection without changing the verified source fingerprint.
+    project_bundle(&mut bundle, profile)?;
+
+    for (name, bytes) in bundle {
+        super::stage_generated(transaction, root, &docs.join(name), &bytes, adopt)?;
     }
 
     super::stage_generated(transaction, root, &docs.join(".nojekyll"), b"", adopt)?;
 
     Ok(())
+}
+
+/// Project validated profile identity into generated browser metadata after bundle verification.
+fn project_bundle(bundle: &mut [(String, Vec<u8>)], profile: &StateProfile) -> Result<()> {
+    let organization = profile.variant == ProfileVariant::Organization;
+    let handle = if organization {
+        &profile.organization
+    } else {
+        &profile.username
+    };
+
+    let description = if organization {
+        format!("{handle}: {}", profile.headline)
+    } else {
+        format!("SOURCEFIELD: {}", profile.headline)
+    };
+
+    let variant = if organization {
+        "organization"
+    } else {
+        "personal"
+    };
+
+    for (name, bytes) in bundle.iter_mut() {
+        match name.as_str() {
+            "index.html" => {
+                let mut html = String::from_utf8(std::mem::take(bytes))?;
+                html = replace_once(
+                    html,
+                    "<html lang=\"en\">",
+                    &format!("<html lang=\"en\" data-profile-variant=\"{variant}\">"),
+                )?;
+                html = replace_once(
+                    html,
+                    "<title>SOURCEFIELD</title>",
+                    &format!(
+                        "<title>SOURCEFIELD / {}</title>",
+                        sourcefield_render::escape_xml(handle)
+                    ),
+                )?;
+                html = replace_once(
+                    html,
+                    "content=\"An interactive field of projects, packages, and capabilities.\"",
+                    &format!(
+                        "content=\"{}\"",
+                        sourcefield_render::escape_xml(&description)
+                    ),
+                )?;
+                html = replace_once(
+                    html,
+                    "<a class=\"identity\" href=\"#\"",
+                    &format!(
+                        "<a class=\"identity\" href=\"https://github.com/{}\"",
+                        sourcefield_render::escape_xml(handle)
+                    ),
+                )?;
+                html = replace_once(
+                    html,
+                    "<small>/ PROFILE</small>",
+                    &format!(
+                        "<small>/ {}</small>",
+                        sourcefield_render::escape_xml(handle)
+                    ),
+                )?;
+                *bytes = html.into_bytes();
+            }
+            "site.webmanifest" => {
+                let mut pwa: serde_json::Value = serde_json::from_slice(bytes)?;
+                pwa["name"] = format!("SOURCEFIELD / {handle}").into();
+                pwa["short_name"] = if organization {
+                    handle.as_str()
+                } else {
+                    "SOURCEFIELD"
+                }
+                .into();
+                pwa["description"] = description.clone().into();
+                *bytes = serde_json::to_vec_pretty(&pwa)?;
+                bytes.push(b'\n');
+            }
+            "favicon.svg" if organization => {
+                let mut svg = String::from_utf8(std::mem::take(bytes))?;
+                svg = replace_once(svg, "#A78BFA", "#FFB86B")?;
+                svg = replace_once(
+                    svg,
+                    "<circle cx=\"32\" cy=\"32\" r=\"6\" fill=\"url(#g)\"/>",
+                    concat!(
+                        "<path d=\"M32 22L41 27V37L32 42L23 37V27Z\" fill=\"none\" ",
+                        "stroke=\"url(#g)\" stroke-width=\"2\"/>"
+                    ),
+                )?;
+                *bytes = svg.into_bytes();
+            }
+            _ => {}
+        }
+    }
+
+    // Release manifests authenticate source bytes; deployed manifests retain that source identity
+    // and report the actual generated file bytes. Neither manifest authenticates a release alone.
+    if let Some(index) = bundle
+        .iter()
+        .position(|(name, _)| name == "runtime-manifest.json")
+    {
+        let mut manifest: RuntimeManifest = serde_json::from_slice(&bundle[index].1)?;
+
+        for (name, bytes) in bundle.iter() {
+            // WASM and unchanged assets already have verified digests.
+            // Reuse them instead of hashing large modules twice.
+            if matches!(
+                name.as_str(),
+                "index.html" | "site.webmanifest" | "favicon.svg"
+            ) {
+                *manifest
+                    .files
+                    .get_mut(name)
+                    .context("missing projected runtime member")? = sha256_bytes(bytes);
+            }
+        }
+
+        bundle[index].1 = serde_json::to_vec_pretty(&manifest)?;
+        bundle[index].1.push(b'\n');
+    }
+
+    Ok(())
+}
+
+/// Fail visibly when a compiled template changes instead of silently losing generated identity.
+fn replace_once(source: String, marker: &str, replacement: &str) -> Result<String> {
+    ensure!(
+        source.matches(marker).count() == 1,
+        "runtime template marker is missing or repeated"
+    );
+
+    Ok(source.replacen(marker, replacement, 1))
 }
 
 /// Validate a complete bundle against compile-time identity and retain exactly verified bytes.
@@ -242,7 +382,7 @@ mod tests {
 
     impl Drop for Fixture {
         fn drop(&mut self) {
-            fs::remove_dir_all(&self.0).unwrap();
+            let _ = fs::remove_dir_all(&self.0);
         }
     }
 
@@ -253,6 +393,247 @@ mod tests {
         let bundle = verified_bundle(&fixture.0).unwrap();
 
         assert_eq!(bundle.len(), 9);
+    }
+
+    /// Build public identity without coupling projection tests to a profile owner's name.
+    fn profile(variant: ProfileVariant) -> StateProfile {
+        StateProfile {
+            variant,
+            maintainer: None,
+            username: "sample-person".into(),
+            display_name: "Sample Person".into(),
+            organization: "example-labs".into(),
+            headline: "Libraries and developer tools.".into(),
+            tagline: "Sample profile.".into(),
+            pages_url: "https://example.github.io/profile/".into(),
+            source_url: "https://github.com/example/profile".into(),
+        }
+    }
+
+    /// Borrow a projected fixture member to inspect its rendered contract.
+    fn member<'a>(bundle: &'a [(String, Vec<u8>)], name: &str) -> &'a [u8] {
+        &bundle.iter().find(|(key, _)| key == name).unwrap().1
+    }
+
+    #[test]
+    fn organization_projection_restores_identity_and_hexagonal_favicon() {
+        // Arrange
+        let fixture = Fixture::new();
+        let mut bundle = verified_bundle(&fixture.0).unwrap();
+        let profile = profile(ProfileVariant::Organization);
+
+        // Act
+        project_bundle(&mut bundle, &profile).unwrap();
+        let html = std::str::from_utf8(member(&bundle, "index.html")).unwrap();
+        let favicon = std::str::from_utf8(member(&bundle, "favicon.svg")).unwrap();
+        let pwa: serde_json::Value =
+            serde_json::from_slice(member(&bundle, "site.webmanifest")).unwrap();
+
+        // Assert
+        assert!(html.contains("<title>SOURCEFIELD / example-labs</title>"));
+        assert!(html.contains("data-profile-variant=\"organization\""));
+        assert!(html.contains("content=\"example-labs: Libraries and developer tools.\""));
+        assert!(html.contains("href=\"https://github.com/example-labs\""));
+        assert!(favicon.contains("M32 22L41 27V37L32 42L23 37V27Z"));
+        assert!(favicon.contains("stop-color=\"#FFB86B\""));
+        assert!(!favicon.contains("r=\"6\""));
+        assert_eq!(pwa["name"], "SOURCEFIELD / example-labs");
+        assert_eq!(pwa["short_name"], "example-labs");
+        assert_eq!(
+            pwa["description"],
+            "example-labs: Libraries and developer tools."
+        );
+    }
+
+    #[test]
+    fn personal_projection_restores_identity_without_changing_its_favicon() {
+        // Arrange
+        let fixture = Fixture::new();
+        let mut bundle = verified_bundle(&fixture.0).unwrap();
+        let profile = profile(ProfileVariant::Personal);
+        let original_favicon = member(&bundle, "favicon.svg").to_vec();
+
+        // Act
+        project_bundle(&mut bundle, &profile).unwrap();
+        let html = std::str::from_utf8(member(&bundle, "index.html")).unwrap();
+        let pwa: serde_json::Value =
+            serde_json::from_slice(member(&bundle, "site.webmanifest")).unwrap();
+
+        // Assert
+        assert!(html.contains("<title>SOURCEFIELD / sample-person</title>"));
+        assert!(html.contains("data-profile-variant=\"personal\""));
+        assert!(html.contains("content=\"SOURCEFIELD: Libraries and developer tools.\""));
+        assert_eq!(member(&bundle, "favicon.svg"), original_favicon);
+        assert_eq!(pwa["name"], "SOURCEFIELD / sample-person");
+        assert_eq!(pwa["short_name"], "SOURCEFIELD");
+    }
+
+    #[test]
+    fn authored_metadata_is_escaped_as_markup_and_serialized_as_json() {
+        // Arrange
+        let fixture = Fixture::new();
+        let mut bundle = verified_bundle(&fixture.0).unwrap();
+        let mut profile = profile(ProfileVariant::Organization);
+        profile.headline = "<script> & \"quoted\" 'text'".into();
+
+        // Act
+        project_bundle(&mut bundle, &profile).unwrap();
+        let html = std::str::from_utf8(member(&bundle, "index.html")).unwrap();
+        let pwa: serde_json::Value =
+            serde_json::from_slice(member(&bundle, "site.webmanifest")).unwrap();
+
+        // Assert
+        assert!(html.contains("&lt;script&gt; &amp; &quot;quoted&quot; &apos;text&apos;"));
+        assert!(!html.contains("<script>"));
+        assert_eq!(
+            pwa["description"],
+            format!("example-labs: {}", profile.headline)
+        );
+    }
+
+    #[test]
+    fn projected_manifest_tracks_output_digests_and_preserves_source_identity() {
+        // Arrange
+        let fixture = Fixture::new();
+        let original = fixture.manifest();
+        let mut bundle = verified_bundle(&fixture.0).unwrap();
+        let profile = profile(ProfileVariant::Organization);
+
+        // Act
+        project_bundle(&mut bundle, &profile).unwrap();
+        let projected: RuntimeManifest =
+            serde_json::from_slice(member(&bundle, "runtime-manifest.json")).unwrap();
+
+        // Assert
+        assert_eq!(projected.source_revision, original.source_revision);
+        assert_eq!(projected.source_fingerprint, original.source_fingerprint);
+        assert_eq!(projected.generator_version, original.generator_version);
+        assert_eq!(projected.files.len(), original.files.len());
+        assert_ne!(projected.files["index.html"], original.files["index.html"]);
+        assert_eq!(
+            projected.files[WASM_FILES[1]],
+            original.files[WASM_FILES[1]]
+        );
+        assert!(
+            projected
+                .files
+                .iter()
+                .all(|(name, digest)| sha256_bytes(member(&bundle, name)) == *digest)
+        );
+        assert_eq!(fixture.manifest().files, original.files);
+    }
+
+    #[test]
+    fn profile_projection_is_deterministic_for_the_same_authenticated_source() {
+        // Arrange
+        let fixture = Fixture::new();
+        let mut first = verified_bundle(&fixture.0).unwrap();
+        let mut second = verified_bundle(&fixture.0).unwrap();
+        let profile = profile(ProfileVariant::Organization);
+
+        // Act
+        project_bundle(&mut first, &profile).unwrap();
+        project_bundle(&mut second, &profile).unwrap();
+
+        // Assert
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn authenticated_projection_is_staged_as_a_complete_generated_bundle() {
+        // Arrange
+        let fixture = Fixture::new();
+        let consumer = Fixture::new();
+        let mut transaction = Transaction::begin(&consumer.0).unwrap();
+        let profile = profile(ProfileVariant::Organization);
+
+        // Act
+        stage(
+            &mut transaction,
+            &consumer.0,
+            Path::new("docs"),
+            Some(&fixture.0),
+            false,
+            &profile,
+        )
+        .unwrap();
+        let report = transaction.commit().unwrap();
+        let manifest: RuntimeManifest = serde_json::from_slice(
+            &fs::read(consumer.0.join("docs/runtime-manifest.json")).unwrap(),
+        )
+        .unwrap();
+
+        // Assert
+        assert_eq!(report.written, 10);
+        assert!(
+            fs::read_to_string(consumer.0.join("docs/index.html"))
+                .unwrap()
+                .contains("SOURCEFIELD / example-labs")
+        );
+        assert!(manifest.files.iter().all(|(name, digest)| {
+            sha256_bytes(&fs::read(consumer.0.join("docs").join(name)).unwrap()) == *digest
+        }));
+    }
+
+    #[test]
+    fn tampered_source_cannot_reach_projection_or_stage_any_output() {
+        // Arrange
+        let fixture = Fixture::new();
+        let consumer = Fixture::new();
+        fs::create_dir(consumer.0.join("docs")).unwrap();
+        fs::write(consumer.0.join("docs/index.html"), b"previous profile").unwrap();
+        let altered = b"<html>modified source bundle</html>";
+        fs::write(fixture.0.join("index.html"), altered).unwrap();
+        let mut manifest = fixture.manifest();
+        manifest
+            .files
+            .insert("index.html".into(), sha256_bytes(altered));
+        fixture.write_manifest(&manifest);
+        let mut transaction = Transaction::begin(&consumer.0).unwrap();
+        let profile = profile(ProfileVariant::Organization);
+
+        // Act
+        let result = stage(
+            &mut transaction,
+            &consumer.0,
+            Path::new("docs"),
+            Some(&fixture.0),
+            true,
+            &profile,
+        );
+        let report = transaction.commit().unwrap();
+
+        // Assert
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("authored asset differs")
+        );
+        assert_eq!(report.written, 0);
+        assert_eq!(
+            fs::read(consumer.0.join("docs/index.html")).unwrap(),
+            b"previous profile"
+        );
+    }
+
+    #[test]
+    fn template_changes_cannot_silently_omit_profile_identity() {
+        // Arrange
+        let fixture = Fixture::new();
+        let mut bundle = verified_bundle(&fixture.0).unwrap();
+        let html = bundle
+            .iter_mut()
+            .find(|(name, _)| name == "index.html")
+            .unwrap();
+        html.1 = b"<html lang=\"en\"><title>Changed template</title></html>".to_vec();
+        let profile = profile(ProfileVariant::Personal);
+
+        // Act
+        let result = project_bundle(&mut bundle, &profile);
+
+        // Assert
+        assert!(result.unwrap_err().to_string().contains("template marker"));
     }
 
     #[test]

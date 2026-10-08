@@ -302,35 +302,56 @@ pub fn render_package_readme_prepared(config: &Config) -> String {
     output
 }
 
-/// Render approved projects from the same composed inventory used by the visual field.
+/// Render the managed project table from validated composed content in authored presentation order.
+///
+/// Domains and project entries retain authored order. Public repositories are linked; approved
+/// private abstractions remain plain text. Display stacks use the same approved labels as the SVG.
+/// Empty sections retain their managed markers without a heading or table scaffolding.
 pub fn render_project_readme(config: &Config) -> String {
-    let mut output = String::from("<!-- sourcefield:projects:start -->\n### Projects\n");
+    let mut projects = config
+        .domains
+        .iter()
+        .flat_map(|domain| {
+            config
+                .projects
+                .iter()
+                .filter(move |project| project.domain == domain.id && project.show_in_readme)
+        })
+        .peekable();
 
-    for domain in &config.domains {
-        let projects = config
-            .projects
-            .iter()
-            .filter(|project| project.domain == domain.id && project.show_in_readme)
-            .collect::<Vec<_>>();
+    let mut output = String::from("<!-- sourcefield:projects:start -->\n");
+    // Peeking gates table scaffolding without collecting or scanning admitted rows twice.
+    if projects.peek().is_some() {
+        output
+            .push_str("### Projects\n\n| Project | What it does | Stack |\n| --- | --- | --- |\n");
+    }
 
-        if projects.is_empty() {
-            continue;
+    for project in projects {
+        output.push_str("| ");
+
+        if let Some(repository) = &project.repository {
+            output.push('[');
+            output.push_str(&markdown_text(&project.label));
+            output.push_str("](https://github.com/");
+            output.push_str(&markdown_destination(repository));
+            output.push(')');
+        } else {
+            output.push_str(&markdown_text(&project.label));
         }
 
-        output.push_str(&format!("\n#### {}\n\n", markdown_text(&domain.label)));
+        output.push_str(" | ");
+        output.push_str(&markdown_text(&project.summary));
+        output.push_str(" | ");
 
-        for project in projects {
-            let label = markdown_text(&project.label);
-            let summary = markdown_text(&project.summary);
-
-            if let Some(repository) = &project.repository {
-                output.push_str(&format!(
-                    "- [{label}](https://github.com/{repository}): {summary}\n"
-                ));
-            } else {
-                output.push_str(&format!("- {label}: {summary}\n"));
+        for (index, technology) in project.display_stack.iter().enumerate() {
+            if index > 0 {
+                output.push_str(" / ");
             }
+
+            output.push_str(&markdown_text(technology));
         }
+
+        output.push_str(" |\n");
     }
 
     output.push_str("<!-- sourcefield:projects:end -->");
@@ -340,7 +361,7 @@ pub fn render_project_readme(config: &Config) -> String {
 
 /// Escape authored prose so approved text cannot inject HTML or Markdown links.
 fn markdown_text(value: &str) -> std::borrow::Cow<'_, str> {
-    if !value.bytes().any(|byte| b"&<>\\[]*_`\n\r".contains(&byte)) {
+    if !value.bytes().any(|byte| b"&<>\\[]*_`|\n\r".contains(&byte)) {
         return std::borrow::Cow::Borrowed(value);
     }
 
@@ -351,7 +372,7 @@ fn markdown_text(value: &str) -> std::borrow::Cow<'_, str> {
             '&' => escaped.push_str("&amp;"),
             '<' => escaped.push_str("&lt;"),
             '>' => escaped.push_str("&gt;"),
-            '\\' | '[' | ']' | '*' | '_' | '`' => {
+            '\\' | '[' | ']' | '*' | '_' | '`' | '|' => {
                 escaped.push('\\');
                 escaped.push(character);
             }
@@ -388,7 +409,10 @@ pub fn valid_package_id(id: &str) -> bool {
 
 /// Encode Markdown destination delimiters even when callers bypass typed validation.
 fn markdown_destination(value: &str) -> std::borrow::Cow<'_, str> {
-    if !value.bytes().any(|byte| b"()[]<>\\ \n\r\t".contains(&byte)) {
+    if !value
+        .bytes()
+        .any(|byte| b"()[]<>|\\ \n\r\t".contains(&byte))
+    {
         return std::borrow::Cow::Borrowed(value);
     }
 
@@ -401,6 +425,7 @@ fn markdown_destination(value: &str) -> std::borrow::Cow<'_, str> {
             ']' => escaped.push_str("%5D"),
             '<' => escaped.push_str("%3C"),
             '>' => escaped.push_str("%3E"),
+            '|' => escaped.push_str("%7C"),
             '\\' => escaped.push_str("%5C"),
             ' ' => escaped.push_str("%20"),
             '\n' => escaped.push_str("%0A"),

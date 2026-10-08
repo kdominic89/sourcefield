@@ -239,6 +239,175 @@ class PortablePathTests(unittest.TestCase):
         self.assert_portable_path_rejected('a\x00b', 'control characters')
 
 
+class CandidateObservationTests(unittest.TestCase):
+    """Check selected observation argv, tracked-input copying and admission error propagation.
+
+    Native rendering and preservation are exercised by the CLI and real-consumer acceptance tests.
+    """
+
+    def arrange_observations(self, root: Path, captured: bool = True) -> tuple[Path, Path, Path]:
+        """Prepare a live published capture alongside an intentionally empty authoring seed."""
+        source = root / "source"
+        (source / "config").mkdir(parents=True)
+        (source / "assets").mkdir()
+        seed = {"schema_version": 1, "mode": "preview", "packages": []}
+        capture = {
+            "schema_version": 1,
+            "mode": "live",
+            "fetched_at": "2026-10-07T12:00:00Z",
+            "packages": [{"id": f"Example.Package{index}"} for index in range(10)],
+        }
+
+        (source / "config/offline-snapshot.json").write_text(json.dumps(seed), encoding="ascii")
+
+        if captured:
+            (source / "assets/source-snapshot.json").write_text(json.dumps(capture), encoding="ascii")
+
+        installation = root / "installation"
+        installation.mkdir()
+        (installation / "sourcefield").touch()
+
+        return source, root / "candidate", installation
+
+    def observation_transport(self, source: Path, destination: Path, installation: Path, observed: list):
+        """Model only inventory and native observation-file admission, leaving rendering to native tests."""
+        tracked = "\0".join(
+            sorted(path.relative_to(source).as_posix() for path in source.rglob("*") if path.is_file())
+        ).encode("ascii") + b"\0"
+
+        executable = str(installation / "sourcefield")
+
+        def execute(command, **kwargs):
+            """Observe copied input at the native boundary without simulating generated output."""
+            if command == ["git", "ls-files", "-z"]:
+                return subprocess.CompletedProcess(command, 0, stdout=tracked)
+
+            if command[0] == executable and command[1] == "generate":
+                observed.append(command)
+                fallback = (
+                    command[command.index("--fallback-snapshot") + 1]
+                    if "--fallback-snapshot" in command else "config/offline-snapshot.json"
+                )
+
+                try:
+                    snapshot = json.loads((destination / fallback).read_text(encoding="ascii"))
+                except FileNotFoundError as error:
+                    raise subprocess.CalledProcessError(
+                        1, command, stderr="load captured observation snapshot: " + fallback
+                    ) from error
+
+                observed.append(snapshot)
+
+                return subprocess.CompletedProcess(command, 0)
+
+            if command[0] == executable and command[1] == "validate":
+                observed.append(command)
+
+                return subprocess.CompletedProcess(command, 0)
+
+            raise AssertionError("unmodeled candidate command")
+
+        return execute
+
+    def test_offline_candidate_selects_copied_capture_when_empty_authoring_seed_exists(self):
+        """Select the retained observation input without asserting native output preservation."""
+        with tempfile.TemporaryDirectory() as temporary:
+            # Arrange
+            source, destination, installation = self.arrange_observations(Path(temporary))
+            observed = []
+            transport = self.observation_transport(source, destination, installation, observed)
+
+            # Act
+            with patch.object(consumer_candidate, "isolated_checkout", side_effect=lambda _, root: root.mkdir()), \
+                    patch.object(consumer_candidate.subprocess, "run", side_effect=transport):
+                consumer_candidate.candidate(
+                    source, destination, installation, "config/profile.toml", [], True, False
+                )
+
+            # Assert
+            command, selected_input, validation = observed
+            self.assertIn("--offline", command)
+            self.assertEqual(command[command.index("--fallback-snapshot") + 1], "assets/source-snapshot.json")
+            self.assertEqual(len(selected_input["packages"]), 10)
+            self.assertEqual(selected_input["mode"], "live")
+            self.assertEqual(validation[1], "validate")
+
+    def test_live_candidate_selects_the_same_published_fallback_capture(self):
+        """Pass the retained capture path as optional input to strict native collection."""
+        with tempfile.TemporaryDirectory() as temporary:
+            # Arrange
+            source, destination, installation = self.arrange_observations(Path(temporary))
+            observed = []
+            transport = self.observation_transport(source, destination, installation, observed)
+
+            # Act
+            with patch.object(consumer_candidate, "isolated_checkout", side_effect=lambda _, root: root.mkdir()), \
+                    patch.object(consumer_candidate.subprocess, "run", side_effect=transport):
+                consumer_candidate.candidate(
+                    source, destination, installation, "config/profile.toml", [], False, False
+                )
+
+            # Assert
+            command, selected_input, _ = observed
+            self.assertIn("--strict-live", command)
+            self.assertEqual(command[command.index("--fallback-snapshot") + 1], "assets/source-snapshot.json")
+            self.assertEqual(len(selected_input["packages"]), 10)
+
+    def test_offline_missing_capture_propagates_native_admission_failure(self):
+        """Propagate offline missing-input rejection without asserting native transaction behavior."""
+        with tempfile.TemporaryDirectory() as temporary:
+            # Arrange
+            source, destination, installation = self.arrange_observations(Path(temporary), captured=False)
+            original = (source / "config/offline-snapshot.json").read_bytes()
+            observed = []
+            transport = self.observation_transport(source, destination, installation, observed)
+
+            # Act
+            with patch.object(consumer_candidate, "isolated_checkout", side_effect=lambda _, root: root.mkdir()), \
+                    patch.object(consumer_candidate.subprocess, "run", side_effect=transport):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    consumer_candidate.candidate(
+                        source, destination, installation, "config/profile.toml", [], True, False
+                    )
+
+            # Assert
+            self.assertEqual(len(observed), 1)
+            self.assertIn("assets/source-snapshot.json", failure.exception.stderr)
+            self.assertFalse((destination / "assets/source-snapshot.json").exists())
+            self.assertEqual((source / "config/offline-snapshot.json").read_bytes(), original)
+
+    def test_missing_capture_does_not_prevent_forwarding_a_strict_live_command(self):
+        """Observe strict native invocation without simulating a successful first refresh."""
+        with tempfile.TemporaryDirectory() as temporary:
+            # Arrange
+            source, destination, installation = self.arrange_observations(Path(temporary), captured=False)
+            observed = []
+            transport = self.observation_transport(source, destination, installation, observed)
+
+            def stop_at_generation(command, **kwargs):
+                """Stop at the native boundary; actual bootstrap success belongs to native acceptance."""
+                if command[0] == str(installation / "sourcefield") and command[1] == "generate":
+                    observed.append(command)
+                    raise RuntimeError("observed strict native generation boundary")
+
+                return transport(command, **kwargs)
+
+            # Act
+            with patch.object(consumer_candidate, "isolated_checkout", side_effect=lambda _, root: root.mkdir()), \
+                    patch.object(consumer_candidate.subprocess, "run", side_effect=stop_at_generation):
+                with self.assertRaisesRegex(RuntimeError, "observed strict native generation boundary"):
+                    consumer_candidate.candidate(
+                        source, destination, installation, "config/profile.toml", [], False, False
+                    )
+
+            # Assert
+            self.assertEqual(len(observed), 1)
+            command = observed[0]
+            self.assertIn("--strict-live", command)
+            self.assertNotIn("--offline", command)
+            self.assertEqual(command[command.index("--fallback-snapshot") + 1], "assets/source-snapshot.json")
+
+
 class CandidateProvenanceTests(unittest.TestCase):
     """Keep real committed source identity available to canonical import verification."""
 

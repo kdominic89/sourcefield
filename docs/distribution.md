@@ -44,10 +44,21 @@ literal reference. `sourcefield.lock.json` records the same SHA. The workflow ch
 `job.workflow_sha`, which identifies the reusable workflow's own source rather than the caller.
 This identity API is a GitHub.com requirement; Enterprise Server compatibility is not claimed.
 
-The reusable workflow accepts `config`, `readmes` (JSON array), `caller_workflow`, `offline` and
-`locked`. Its only optional explicit secret is `PROFILE_TOKEN`. It returns a complete validated
-candidate artifact and generator source commit. It never commits or deploys. Local installation
+The reusable workflow accepts `config`, `readmes` (JSON array), `caller_workflow`, `offline`,
+`locked` and `include_private_count` (boolean, default `false`). Its only optional explicit secret
+is `PROFILE_TOKEN`. It returns a complete validated candidate artifact and generator source commit.
+It never commits or deploys. Local installation
 reads the identical lock and uses the same complete runtime.
+
+The caller template preserves the manual `include_private_count` input and the repository variable
+`SOURCEFIELD_PRIVATE_COUNTS=true`. It forwards their selection through the reusable workflow's
+typed boolean and passes `PROFILE_TOKEN` separately as an optional explicit secret. Caller `env`
+values do not cross the reusable-workflow boundary. A selected count adds native `--private-counts`
+only when the token is nonempty. Without it, candidate preparation emits a warning and continues
+strict public generation. A token alone does not enable collection; only the aggregate count of
+owned private repositories may be collected, never their names. Native CLI configuration and
+`SOURCEFIELD_PRIVATE_COUNTS` environment opt-ins remain independent and are not overwritten by
+this additional caller selection. Their existing credential and strict-mode policy still applies.
 
 For a reviewed upgrade, obtain the new authenticated lock and prepare the paired change:
 
@@ -78,6 +89,19 @@ import verification. The original GitHub origin, exact source HEAD and committed
 remain available; dirty canonical content is not relabeled as committed. The private Git metadata
 is removed even on generation failure and never enters the uploaded candidate artifact.
 
+Candidate generation explicitly selects `assets/source-snapshot.json` for retained observations
+and collection fallback. Offline updates require that capture; a missing capture fails rather than
+substituting the empty authoring seed. A first online refresh can collect without a prior capture
+or seed. Malformed or unsupported existing snapshot input still fails; strict collection failure
+publishes no output.
+The native CLI's default `config/offline-snapshot.json` remains an initial direct-authoring seed.
+
+Offline generation and locked replay preserve an existing `assets/source-snapshot.json` byte-for-byte.
+The separate `assets/render-snapshot.json` records the effective, privacy-filtered rendering input:
+an offline Preview has no retrieval date, while the retained Live capture keeps its original date
+and source statuses for a later refresh. Keep both snapshots and the generation record tracked;
+existing approved captures are not rewritten merely because current rendering omits a private count.
+
 The caller uploads the Pages artifact before committing generated output. An upload failure therefore
 leaves the expected Git revision unchanged and publication can be retried safely. The separate deploy
 job depends on successful publication; an uploaded artifact alone never authorizes deployment.
@@ -100,7 +124,9 @@ recorded input and generator identity. An observation cache cannot replace missi
 
 ## Manual release
 
-The first intended release version is `0.1.0`; this statement does not claim a published release.
+The first immutable release is [`v0.1.0`](https://github.com/kdominic89/sourcefield/releases/tag/v0.1.0),
+published on October 7, 2026. The workspace version describes the next release being prepared;
+unreleased source does not provide an authenticated consumer release pin.
 In GitHub, open **Actions -> Release Sourcefield -> Run workflow**, select `main`, enter the exact
 workspace version without `v`, and start the workflow once. That owner dispatch authorizes publication;
 there is no second environment review or manual tag push. The workflow also checks the owner on a
@@ -146,3 +172,11 @@ Primary behavior references: [manual dispatch](https://docs.github.com/en/action
 [CLI draft creation](https://cli.github.com/manual/gh_release_create),
 [immutable release guidance](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
 and [rerun commit identity](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs).
+
+## Installed runtime and generated site metadata
+
+Installation verifies the complete raw runtime against its authenticated release provenance before
+rendering any consumer identity. Generation projects the validated profile identity into the HTML,
+web manifest and favicon, and records those three output digests in the generated site's runtime
+manifest. The verified source revision and source fingerprint remain unchanged. The installed runtime
+is never modified; generated `docs/` is output and cannot be reused as the raw `--runtime` installation.

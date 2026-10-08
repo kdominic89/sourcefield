@@ -48,25 +48,25 @@ pub enum ValidationError {
 /// Project identities and endpoint counts are content, not schema invariants. This permits
 /// legitimate additions and renames without changing validation code.
 pub fn validate_config(config: &Config) -> Result<(), ValidationError> {
-    validate_configuration(config, IconReferences::Resolved)
+    validate_configuration(config, ValidationPhase::Resolved)
 }
 
-/// Defer only selected import namespaces until canonical manifests have been composed.
+/// Admit selected imported technology affinities and icon namespaces before composition.
 pub(crate) fn validate_authored_config(config: &Config) -> Result<(), ValidationError> {
-    validate_configuration(config, IconReferences::Authored)
+    validate_configuration(config, ValidationPhase::Authored)
 }
 
 /// Authored inputs may name selected imports that are unavailable until composition.
 #[derive(Clone, Copy)]
-enum IconReferences {
+enum ValidationPhase {
     Authored,
     Resolved,
 }
 
-/// Share every admission check while keeping deferred import references out of rendered usage.
+/// Share admission checks while deferring only references to explicitly selected canonical input.
 fn validate_configuration(
     config: &Config,
-    references: IconReferences,
+    references: ValidationPhase,
 ) -> Result<(), ValidationError> {
     crate::validate_icon_catalog(&config.icons)?;
 
@@ -75,7 +75,7 @@ fn validate_configuration(
         .iter()
         .filter_map(|project| project.icon.as_deref())
     {
-        if matches!(references, IconReferences::Authored)
+        if matches!(references, ValidationPhase::Authored)
             && crate::resolve_icon(&config.icons, icon).is_none()
             && let Some((namespace, _)) = icon.split_once('/')
             && config.imports.iter().any(|import| import.id == namespace)
@@ -210,8 +210,7 @@ fn validate_configuration(
     }
 
     if let Some(maintainer) = &config.profile.maintainer {
-        validate_github_handle(&maintainer.username)?;
-        safe_url(&maintainer.url)?;
+        validate_maintainer(maintainer)?;
     }
 
     let mut import_ids = BTreeSet::new();
@@ -269,8 +268,7 @@ fn validate_configuration(
         validate_github_handle(&domain.owner)?;
 
         if let Some(maintainer) = &domain.maintainer {
-            validate_github_handle(&maintainer.username)?;
-            safe_url(&maintainer.url)?;
+            validate_maintainer(maintainer)?;
         }
 
         anchor(domain.anchor, config)?;
@@ -279,6 +277,12 @@ fn validate_configuration(
     for technology in &config.technologies {
         insert(&mut ids, &format!("technology:{}", technology.id))?;
         for affinity in &technology.affinities {
+            // Consumer capabilities may cross into selected canonical domains before the manifests
+            // are loaded. Project and publication ownership still requires an inline domain.
+            if matches!(references, ValidationPhase::Authored) && import_ids.contains(affinity) {
+                continue;
+            }
+
             domain_reference(&domains, affinity, &technology.id)?;
         }
     }
@@ -447,8 +451,13 @@ pub fn validate_state(state: &ProfileState) -> Result<(), ValidationError> {
     }
 
     if let Some(maintainer) = &state.profile.maintainer {
-        validate_github_handle(&maintainer.username)?;
-        safe_url(&maintainer.url)?;
+        validate_maintainer(maintainer)?;
+    }
+
+    for organization in &state.organizations {
+        if let Some(maintainer) = &organization.maintainer {
+            validate_maintainer(maintainer)?;
+        }
     }
 
     if state.canvas.width < 1200
@@ -514,6 +523,19 @@ pub fn validate_state(state: &ProfileState) -> Result<(), ValidationError> {
     }
 
     Ok(())
+}
+
+/// Validate supplied attribution consistently at configuration, manifest and state boundaries.
+pub(crate) fn validate_maintainer(
+    maintainer: &crate::MaintainerConfig,
+) -> Result<(), ValidationError> {
+    validate_github_handle(&maintainer.username)?;
+
+    if maintainer.role.trim().is_empty() {
+        return Err(ValidationError::InvalidValue("maintainer role".into()));
+    }
+
+    safe_url(&maintainer.url)
 }
 
 /// Restrict authored outbound links to unambiguous absolute HTTPS URLs without credentials.

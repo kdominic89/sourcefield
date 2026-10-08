@@ -162,6 +162,11 @@ pub fn parse_organization(text: &str) -> Result<OrganizationManifest, crate::Con
     }
 
     validate_local_id(&manifest.id).map_err(crate::ConfigError::Validation)?;
+
+    if let Some(maintainer) = &manifest.maintainer {
+        crate::validate::validate_maintainer(maintainer)?;
+    }
+
     validate_manifest_icons(&manifest).map_err(crate::ConfigError::Validation)?;
 
     Ok(manifest)
@@ -218,6 +223,11 @@ pub fn compose_organizations(
         }
 
         validate_local_id(&organization.id)?;
+
+        if let Some(maintainer) = &organization.maintainer {
+            crate::validate::validate_maintainer(maintainer)?;
+        }
+
         validate_manifest_icons(organization)?;
 
         for (key, definition) in &organization.icons {
@@ -385,6 +395,12 @@ pub fn compose_organizations(
                 .max(anchor[1] + 160.0)
                 .max(domain_anchor[1] + 160.0);
             assignments.insert(key, anchor);
+        }
+
+        // Slot allocation stays independent of authored order; presentation retains that order.
+        for project in &organization.projects {
+            let id = scoped(&organization.id, &project.id);
+            let anchor = assignments[&format!("project:{id}")];
             let map_ids = |ids: &[String]| {
                 ids.iter()
                     .map(|id| technology_reference(base, &organization.id, id))

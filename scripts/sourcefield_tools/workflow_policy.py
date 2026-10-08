@@ -85,9 +85,10 @@ def validate_workflows(root: Path) -> None:
     """Check the current pinned reusable consumer contract and an optional validation workflow.
 
     ``update-profile.yml`` must declare exactly one Sourcefield generator. Every present remote
-    action/workflow reference is immutable; local actions are allowed. Historical configure-pages
-    actions and PROFILE_TOKEN mappings are permitted but not required. A separate ``validate.yml``
-    is optional because the distributed consumer template delegates generation checks upstream.
+    action/workflow reference is immutable; local actions are allowed. Pinned configure-pages
+    steps and explicitly forwarded optional PROFILE_TOKEN secrets are supported but not required.
+    A separate ``validate.yml`` is optional because the distributed consumer template delegates
+    generation checks upstream.
     """
     workflows = root / ".github/workflows"
     generator_count = 0

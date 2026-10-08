@@ -44,6 +44,14 @@ Add a project once in the canonical manifest. Rename its label while retaining i
 Removing a project also requires removing obsolete authored layout overrides. Generated assignments
 for removed content are retired. README project/package sections, SVG and browser views derive from
 the same resolved facts. Surrounding authored README prose stays outside managed markers.
+The managed Projects table retains each approved label, summary and `display_stack`; public projects
+link to their repositories and private abstractions remain unlinked. Rows follow authored domain
+order and project order within each domain, including canonical manifest order. Graph normalization
+and deterministic slot allocation do not reorder this presentation.
+
+Maintainer attribution is optional. When supplied in a profile, domain, canonical manifest or state,
+it requires a valid public account/link and a nonempty role after trimming whitespace. The generator
+preserves the approved role text rather than inventing a missing description.
 
 Package versions are observed data. Approved owner/family discovery can include newly published
 packages automatically. Repository discovery does not automatically approve a new prominent project,
@@ -55,6 +63,10 @@ Organization manifests retain every declared technology, including technologies 
 organization affinity and references inside approved project components. A canonical technology's
 `affinities` may contain its manifest's organization ID or be empty. References to another consumer's
 domain are rejected; consumer-specific ownership relationships belong in the profile configuration.
+A local technology may declare an affinity to an inline domain or an explicitly selected import ID.
+Authored validation defers the selected imported domain until composition, which requires its actual
+canonical manifest. Unselected domains are rejected. Local project and publication ownership still
+requires an inline domain; this affinity rule does not authorize adding facts to canonical imports.
 
 A consumer can explicitly bind an imported technology to an existing local technology:
 

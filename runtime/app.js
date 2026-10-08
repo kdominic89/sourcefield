@@ -92,6 +92,16 @@ async function boot() {
 function configureIdentity(state) {
     app.dirty = true;
     const profile = state.profile;
+    const root = document.documentElement;
+    const previousVariant = root.dataset.profileVariant;
+    root.dataset.profileVariant = profile.variant;
+
+    // CSS keeps organization chrome distinct without coupling presentation to an owner's handle.
+    if (previousVariant !== profile.variant && app.palette) {
+        app.palette = readPalette();
+        app.renderer?.setTheme(app.palette);
+    }
+
     const organization = profile.variant === 'organization';
     const handle = organization ? profile.organization : profile.username;
     const identity = document.querySelector('.identity');
@@ -288,7 +298,11 @@ function bindEvents() {
     stage.addEventListener('lostpointercapture', cancelPointer);
 
     stage.addEventListener('pointerleave', () => {
-        if (!app.pointer.down) app.hovered = null;
+        if (!app.pointer.down && app.hovered !== null) {
+            app.hovered = null;
+            // Paused exploration draws only invalidated frames; clearing focus changes its opacity.
+            app.dirty = true;
+        }
     });
 
     stage.addEventListener('wheel', event => {

@@ -14,6 +14,10 @@ Windows' WSL launcher through a bare Bash name when the tests require POSIX shel
 Shared artifact and presentation functions use normal imports from `scripts/sourcefield_tools`;
 the workflow-facing browser gate does not load test modules.
 Unknown commands fail in transport doubles, while archives, digests and filesystem checks remain real.
+Wrapper transport tests establish argument selection and input copying; mocked native commands do not
+prove native output preservation. CLI lifecycle tests exercise the real generation transaction across
+Live collection, offline Preview and failed refresh, including exact retained-capture bytes and dates,
+sealed effective private observations, first strict refresh without a capture, and atomic rejection.
 
 The native all-targets tests also compare the three checked-in README previews against a fresh
 render of the fixed synthetic inputs. The explicit refresh command is documented in
@@ -84,8 +88,9 @@ The browser fixture gate runs both validators and geometry checks on actual gene
 Add `--workflow-root CONSUMER` to check consumer workflow source controls against the current
 `docs/consumer-workflow.yml.template` contract. The update workflow must reference the reusable
 Sourcefield generator exactly once at a full commit SHA; present remote action references must also
-be immutable. An additional `validate.yml` is checked when present. Historical `configure-pages` and
-`PROFILE_TOKEN` entries are permitted but are not required by the current template. This option checks
+be immutable. An additional `validate.yml` is checked when present. Older `configure-pages` entries
+remain permitted. The current template explicitly forwards optional
+`PROFILE_TOKEN`; its presence alone does not enable private aggregation. This option checks
 source conventions, not hosted execution, release authentication or lock equality; use `check_pin.py`
 for the latter. Existing older consumer-local validator copies are not upgraded by this tooling change.
 

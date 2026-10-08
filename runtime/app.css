@@ -41,6 +41,11 @@
 
 }
 
+:root[data-profile-variant="organization"] {
+  --personal: var(--organization);
+  --personal-2: var(--organization-2);
+}
+
 * {
   box-sizing: border-box;
 }

@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -100,8 +102,13 @@ def candidate(
     readmes: list[str],
     offline: bool,
     locked: bool,
+    private_counts: bool = False,
 ) -> None:
-    """Copy tracked public consumer inputs and generate without touching the checkout."""
+    """Copy public inputs and generate with optional additional private aggregate intent.
+
+    A caller selection needs a nonempty PROFILE_TOKEN; otherwise it warns and continues
+    with public collection. Native configuration/environment opt-ins remain independent.
+    """
     if destination.exists() or destination.is_symlink():
         raise ValueError("candidate destination must not exist")
 
@@ -133,6 +140,8 @@ def candidate(
             shutil.copyfile(source / name, output)
 
         executable = installed_executable(installation)
+        # Consumer updates must use their published observations; the CLI's first-author
+        # seed can otherwise replace captured packages with an empty offline preview.
         command = [
             str(executable),
             "generate",
@@ -140,6 +149,8 @@ def candidate(
             str(destination),
             "--config",
             config,
+            "--fallback-snapshot",
+            "assets/source-snapshot.json",
             "--assets",
             "assets",
             "--docs",
@@ -158,6 +169,18 @@ def candidate(
 
         if locked:
             command.append("--locked")
+
+        if private_counts:
+            # The old caller treated missing optional credentials as a public-only run.
+            # Passing the private flag without them would instead fail strict validation.
+            if os.environ.get("PROFILE_TOKEN", "").strip():
+                command.append("--private-counts")
+            else:
+                print(
+                    "::warning::Private aggregate requested, but PROFILE_TOKEN is not configured. "
+                    "Continuing without it.",
+                    file=sys.stderr,
+                )
 
         subprocess.run(command, check=True)
         subprocess.run(
@@ -192,6 +215,11 @@ def main() -> int:
     parser.add_argument("--readmes", default='["README.md"]')
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--locked", action="store_true")
+    parser.add_argument(
+        "--private-counts",
+        action="store_true",
+        help="Request an owned-private aggregate when PROFILE_TOKEN is available",
+    )
     args = parser.parse_args()
     readmes = json.loads(args.readmes)
     if not isinstance(readmes, list) or not all(
@@ -207,6 +235,7 @@ def main() -> int:
         readmes,
         args.offline,
         args.locked,
+        args.private_counts,
     )
 
     return 0

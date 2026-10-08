@@ -9,6 +9,7 @@ async function browserHarness({ reducedMotion = false } = {}) {
     const makeElement = () => ({
         children: [],
         textContent: '',
+        dataset: {},
         append(...children) { this.children.push(...children); },
         replaceChildren(...children) { this.children = children; },
     });
@@ -42,7 +43,7 @@ async function browserHarness({ reducedMotion = false } = {}) {
         },
         document: Object.assign(new EventTarget(), {
             querySelector: element, querySelectorAll: () => [],
-            createElement: makeElement, body: element('body'),
+            createElement: makeElement, body: element('body'), documentElement: element('html'),
         }),
         performance: { now: () => 0 }, URL,
     });
@@ -406,6 +407,28 @@ test('organization identity links maintainer and derives namespaces from state',
     assert.equal(harness.evaluate("app.organizationDomains.has('second')"),true);
 });
 
+for (const variant of ['personal', 'organization']) {
+    test(`profile chrome derives ${variant} styling from the variant with arbitrary owners`, async () => {
+        // Arrange
+        const harness = await browserHarness();
+        const identity = harness.context.document.querySelector('.identity');
+        identity.querySelector = () => ({ textContent: '' });
+        harness.context.identityState = {
+            profile: { variant, username: 'independent-person', organization: 'independent-labs',
+                source_url: 'https://github.com/independent-person/profile', tagline: 'Profile' },
+            nodes: [], edges: [],
+        };
+
+        // Act
+        harness.evaluate('configureIdentity(identityState)');
+
+        // Assert
+        assert.equal(harness.context.document.documentElement.dataset.profileVariant, variant);
+        assert.equal(harness.context.document.title,
+            `SOURCEFIELD / ${variant === 'organization' ? 'independent-labs' : 'independent-person'}`);
+    });
+}
+
 test('fallback rejects canvas sizes that overflow force calculations', () => {
     const anchors = [10,20];
 
@@ -463,6 +486,65 @@ test('paused exploration redraws only when interaction invalidates the frame', a
     assert.equal(harness.evaluate('app.dirty'),false);
 });
 
+
+for (const reducedMotion of [false, true]) {
+    test(`hover exit paints once without simulation: ${reducedMotion ? 'reduced-motion' : 'paused'}`, async () => {
+        // Arrange
+        const harness = await browserHarness({ reducedMotion });
+        let renders = 0;
+        let advances = 0;
+        harness.context.requestAnimationFrame = () => {};
+        harness.context.renderer = { render() { renders++; } };
+        harness.context.simulator = { advance() { advances++; } };
+        harness.evaluate(`app.layer = 'systems'; app.running = false; app.renderer = renderer;
+            app.simulator = simulator; app.positions = []; app.hovered = { id: 'project:sample' };
+            app.dirty = false; buildVisualFrame = () => ({}); drawOverlay = () => {}; app.palette = {};`);
+
+        // Act
+        harness.handlers.get('#stage:pointerleave')();
+        harness.evaluate('frame(16); frame(32); frame(48)');
+
+        // Assert
+        assert.equal(harness.evaluate('app.hovered'), null);
+        assert.equal(renders, 1);
+        assert.equal(advances, 0);
+        assert.equal(harness.evaluate('app.running'), false);
+        assert.equal(harness.evaluate('app.dirty'), false);
+    });
+}
+
+test('leaving an unhovered paused field does not repaint', async () => {
+    // Arrange
+    const harness = await browserHarness();
+    let renders = 0;
+    harness.context.requestAnimationFrame = () => {};
+    harness.context.renderer = { render() { renders++; } };
+    harness.evaluate(`app.layer = 'systems'; app.running = false; app.renderer = renderer;
+        app.positions = []; app.dirty = false; app.palette = {};
+        buildVisualFrame = () => ({}); drawOverlay = () => {};`);
+
+    // Act
+    harness.handlers.get('#stage:pointerleave')();
+    harness.evaluate('frame(16); frame(32)');
+
+    // Assert
+    assert.equal(renders, 0);
+    assert.equal(harness.evaluate('app.dirty'), false);
+});
+
+test('leaving during a captured gesture preserves hover and paused idle state', async () => {
+    // Arrange
+    const harness = await browserHarness();
+    harness.evaluate(`app.running = false; app.pointer.down = true; app.dirty = false;
+        app.hovered = { id: 'project:sample' };`);
+
+    // Act
+    harness.handlers.get('#stage:pointerleave')();
+
+    // Assert
+    assert.equal(harness.evaluate('app.hovered.id'), 'project:sample');
+    assert.equal(harness.evaluate('app.dirty'), false);
+});
 
 test('organization inspector exposes approved maintainer attribution', async () => {
     const harness = await browserHarness();

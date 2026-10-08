@@ -68,13 +68,18 @@ impl<'a> Iterator for WrappedLines<'a> {
     }
 }
 
-/// Advance past one complete interest without losing its first description.
-pub fn next_interest_y(y: f32, interest: &InterestConfig) -> f32 {
+/// Advance a visible interest row using the compact, description-free lead-row contract.
+pub fn next_visible_interest_y(y: f32, interest: &InterestConfig, row: usize) -> f32 {
     let labels = wrapped_lines(&interest.label, FOOTER_LABEL_COLUMNS)
         .count()
         .max(1);
 
-    let summaries = wrapped_lines(&interest.summary, FOOTER_DETAIL_COLUMNS).count();
+    let summaries = if row == 0 {
+        0
+    } else {
+        wrapped_lines(&interest.summary, FOOTER_DETAIL_COLUMNS).count()
+    };
+
     let label_end = y + labels.saturating_sub(1) as f32 * 24.0;
     let summary_end = if summaries == 0 {
         label_end
@@ -95,7 +100,10 @@ pub fn personal_footer_layout(
     let interests_end = interests
         .iter()
         .filter(|item| show_interests && item.show_in_readme)
-        .fold(1422.0, next_interest_y);
+        .enumerate()
+        .fold(1422.0, |y, (row, interest)| {
+            next_visible_interest_y(y, interest, row)
+        });
 
     let platforms_y = 1542.0_f32.max(interests_end + 28.0);
     let platforms = presentation.platforms.join(" / ");
@@ -173,6 +181,50 @@ mod tests {
         let lines = wrapped_lines(input, 0).collect::<Vec<_>>();
 
         assert_eq!(lines, ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn lead_interest_description_does_not_allocate_hidden_footer_space() {
+        // Arrange
+        let interest = InterestConfig {
+            id: "lead".into(),
+            label: "Overview".into(),
+            summary: "hidden detail ".repeat(200),
+            show_in_readme: true,
+        };
+
+        // Act
+        let layout = personal_footer_layout(&PresentationConfig::default(), &[interest], &[], true);
+
+        // Assert
+        assert_eq!(layout.extra_height, 0.0);
+        assert_eq!(layout.platforms_y, 1542.0);
+    }
+
+    #[test]
+    fn later_interest_description_expands_footer_space() {
+        // Arrange
+        let interests = [
+            InterestConfig {
+                id: "lead".into(),
+                label: "Overview".into(),
+                summary: String::new(),
+                show_in_readme: true,
+            },
+            InterestConfig {
+                id: "detail".into(),
+                label: "Languages".into(),
+                summary: "visible detail ".repeat(200),
+                show_in_readme: true,
+            },
+        ];
+
+        // Act
+        let layout = personal_footer_layout(&PresentationConfig::default(), &interests, &[], true);
+
+        // Assert
+        assert!(layout.extra_height > 0.0);
+        assert!(layout.platforms_y > 1542.0);
     }
 
     #[test]

@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 /**
  * Exercise keyboard, touch, WASM, responsive layout, and failure recovery in Chromium.
  * @param {{browser: import('playwright').Browser, base: string, output: string}} options Runtime and artifact location.
- * @returns {Promise<{results: object[]}>} Results for all twelve interaction groups.
+ * @returns {Promise<{results: object[]}>} Results for all interaction groups.
  */
 export async function runInteractionChecks({ browser, base, output }) {
     const context = await browser.newContext({
@@ -53,6 +53,35 @@ export async function runInteractionChecks({ browser, base, output }) {
 
         assert.equal(await page.locator('#motion-button').getAttribute('aria-pressed'), 'true');
         results.push({ check: 'pause and live reduced-motion preserve user pause', animations: normalMotion });
+
+        const chrome = await page.evaluate(async () => {
+            const state = await (await fetch('./profile-state.json')).json();
+            const style = getComputedStyle(document.documentElement);
+            return {
+                variant: state.profile.variant,
+                applied: document.documentElement.dataset.profileVariant,
+                primary: style.getPropertyValue('--personal').trim(),
+                secondary: style.getPropertyValue('--personal-2').trim(),
+            };
+        });
+
+        assert.equal(chrome.applied, chrome.variant);
+        assert.equal(chrome.primary, chrome.variant === 'organization' ? '#ffb86b' : '#8b7cff');
+        assert.equal(chrome.secondary, chrome.variant === 'organization' ? '#5ec8ff' : '#4de7c2');
+        await page.emulateMedia({ colorScheme: 'light' });
+        await page.waitForFunction(() => getComputedStyle(document.documentElement)
+            .getPropertyValue('--personal').trim() ===
+            (document.documentElement.dataset.profileVariant === 'organization' ? '#c66b16' : '#6657e8'));
+
+        const lightSecondary = await page.evaluate(() => getComputedStyle(document.documentElement)
+            .getPropertyValue('--personal-2').trim());
+
+        assert.equal(lightSecondary, chrome.variant === 'organization' ? '#1d7fbc' : '#008e79');
+        await page.emulateMedia({ colorScheme: 'dark' });
+        await page.waitForFunction(() => getComputedStyle(document.documentElement)
+            .getPropertyValue('--personal').trim() ===
+            (document.documentElement.dataset.profileVariant === 'organization' ? '#ffb86b' : '#8b7cff'));
+        results.push({ check: 'variant-owned personal and organization chrome in dark and light', ...chrome });
 
         const projectButton = page.locator('#node-list button').first();
         await page.locator('.semantic-profile summary').click();
@@ -113,6 +142,10 @@ export async function runInteractionChecks({ browser, base, output }) {
         assert.equal(await page.locator('#detail-title').textContent(), touch.name);
         await page.locator('#detail-close').click();
         results.push({ check: 'touch tap without pointermove activates graph node', node: touch.name });
+
+        const hoverChecks = await checkPausedHoverExit(page, touch);
+        results.push({ check: 'paused and reduced-motion hover exit repaint once without simulation', hoverChecks });
+
 
         // CDP emits a real cancellation; a DOM event would bypass Chromium's pointer synthesis.
         const cdp = await context.newCDPSession(page);
@@ -260,9 +293,77 @@ export async function runInteractionChecks({ browser, base, output }) {
 
         assert.deepEqual(errors, []);
         results.push({ check: 'normal load has no browser errors or CSP violations', errors });
-        assert.equal(results.length, producerDirectory ? 13 : 12);
+        assert.equal(results.length, producerDirectory ? 15 : 14);
+
         return { results };
     } finally {
         await context.close();
     }
+}
+
+/**
+ * Verify Chromium canvas invalidation without exposing production runtime internals.
+ * @param {import('playwright').Page} page Browser with a paused Systems layer.
+ * @param {{x: number, y: number}} point Visible project coordinates in the current viewport.
+ * @returns {Promise<object[]>} Observed repaint and simulation counts for each motion preference.
+ */
+async function checkPausedHoverExit(page, point) {
+    await page.evaluate(async () => {
+        const module = await import('./pkg/sourcefield_wasm.js');
+        const clear = CanvasRenderingContext2D.prototype.clearRect;
+        const advance = module.Simulator.prototype.advance;
+        window.hoverProbe = { paints: 0, advances: 0 };
+        CanvasRenderingContext2D.prototype.clearRect = function(...args) {
+            if (this.canvas.id === 'label-canvas') window.hoverProbe.paints++;
+
+            return clear.apply(this, args);
+        };
+        module.Simulator.prototype.advance = function(...args) {
+            window.hoverProbe.advances++;
+
+            return advance.apply(this, args);
+        };
+        window.restoreHoverProbe = () => {
+            CanvasRenderingContext2D.prototype.clearRect = clear;
+            module.Simulator.prototype.advance = advance;
+            delete window.hoverProbe;
+            delete window.restoreHoverProbe;
+        };
+    });
+
+    const checks = [];
+    const settle = () => page.evaluate(() => new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
+
+    try {
+        for (const reducedMotion of ['no-preference', 'reduce']) {
+            // Arrange
+            await page.emulateMedia({ reducedMotion });
+            await page.mouse.move(1, 1);
+            await settle();
+            await page.mouse.move(point.x, point.y);
+            await settle();
+            const before = await page.evaluate(() => ({ ...window.hoverProbe }));
+
+            // Act
+            await page.mouse.move(1, 1);
+            await settle();
+            const after = await page.evaluate(() => ({ ...window.hoverProbe }));
+
+            // Assert
+            assert.equal(after.paints - before.paints, 1, `${reducedMotion}: hover exit needs one repaint`);
+            assert.equal(after.advances - before.advances, 0, `${reducedMotion}: simulation must stay paused`);
+            assert.equal(await page.locator('#motion-button').getAttribute('aria-pressed'), 'true');
+            checks.push({
+                reducedMotion,
+                paints: after.paints - before.paints,
+                advances: after.advances - before.advances,
+            });
+        }
+    } finally {
+        await page.evaluate(() => window.restoreHoverProbe());
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+    }
+
+    return checks;
 }

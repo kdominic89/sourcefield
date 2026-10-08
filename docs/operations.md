@@ -20,6 +20,34 @@ machine needs the matching CLI/runtime and captured inputs provisioned first. Mi
 with a diagnostic; they are not fabricated. The generation transaction validates the complete
 candidate before promotion. `sourcefield validate --root PATH` provides an additional artifact check.
 
+Standalone validation checks the current authored configuration against the complete generation record,
+including generator identity and every captured input digest. It then recomposes the authored imports
+from captured manifests and layout without network access, compares that result with the recorded
+resolved configuration, and reconstructs state and SVG bytes. Missing or malformed provenance and
+stale authored facts fail closed. Diagnostics distinguish unsupported record schemas, a changed
+generator build, changed authored input and damaged captured bytes. After a generator upgrade,
+regenerate with the matching CLI/runtime before validating or replaying that generation.
+
+Generation records use envelope schema 2 and bind six inputs: resolved configuration, retained source
+snapshot, effective render snapshot, import capture, layout and current profile state. This generator
+accepts only envelope schema 2. Records from older generators fail the exact generator identity check;
+regenerate with a matching CLI/runtime pair after upgrading. Profile configuration schema 1 and
+profile state schema 3 remain unchanged. Direct-authored assets created before capture support remain valid
+only when they contain no imports, resolved configuration, generation record or capture/layout metadata.
+
+Offline previews, locked replay and `--no-history` retain the existing history index and every indexed
+archive byte-for-byte, including their order and timestamps. A lower `history_limit` does not prune
+history in those modes. An allowed live history update applies sorting and retention even when its
+semantic hash is already archived; the original matching archive bytes and timestamp remain unchanged.
+Expired owned archives are removed only by that allowed live retention operation. Unindexed files
+outside Sourcefield ownership remain outside the retention inventory and are never swept.
+
+History admission validates maintainer roles as well as current state. A supplied empty or whitespace-only
+role in an archive produced by an older generator now rejects generation. Inspect historical data before
+upgrading; omitted optional maintainer attribution remains valid. Supplied attribution requires a
+nonblank role. Sourcefield does not silently rewrite or discard invalid archives. The two actual
+consumers' 48 retained archives passed the stricter admission checks.
+
 For successful live refreshes with identical observation content, Sourcefield retains the previous
 capture and its original `fetched_at`. That timestamp describes the retained observation, not today's
 poll. Changed values, source status, warnings or mode create a new capture. This avoids commits caused
@@ -28,6 +56,18 @@ only by the passage of time while keeping archived provenance truthful; it does 
 Ignored generated runtime files may be absent after a fresh checkout. Generation recreates missing
 owned output while still refusing to overwrite changed owned bytes or arbitrary unowned files.
 The tracked ownership inventory remains complete even though binary/glue output is not committed.
+
+Offline generation and locked replay preserve an existing `assets/source-snapshot.json` exactly,
+including whitespace, retrieval date, source status and previously approved observations. Their
+effective rendering input is captured separately in `assets/render-snapshot.json`; Preview dates
+remain empty and current private-count policy applies to that input. Locked replay uses the recorded
+effective input rather than reapplying today's credential selection. Initial direct offline authoring
+without a retained capture stores only its policy-filtered seed as the first source snapshot.
+
+A first online refresh does not require a seed or an existing observation capture. Absence allows
+fresh collection; malformed files, unsupported snapshot schemas and filesystem errors remain fatal.
+Without usable dated prior observations, failed collection cannot succeed through fallback.
+Strict failure leaves output intact.
 
 Default online generation preserves a partial collection as `Partial`, including explicit failed
 sources. If the entire collection fails, permissive generation may use only a usable, dated capture;

@@ -12,6 +12,9 @@ use crate::{
 /// Failure to construct the deterministic public state.
 #[derive(Debug, Error)]
 pub enum GraphError {
+    /// Observation snapshot uses an unsupported schema; carries the rejected version.
+    #[error("unsupported observation snapshot schema: {0}; expected 1")]
+    UnsupportedSnapshotVersion(u32),
     /// Configuration or generated graph exceeds the supported contract.
     #[error(transparent)]
     Validation(#[from] crate::ValidationError),
@@ -61,7 +64,9 @@ pub fn prepare_profile(
     snapshot: &Snapshot,
 ) -> Result<PreparedProfile, GraphError> {
     if snapshot.schema_version != 1 {
-        return Err(crate::ValidationError::UnsupportedVersion.into());
+        return Err(GraphError::UnsupportedSnapshotVersion(
+            snapshot.schema_version,
+        ));
     }
 
     crate::validate_config(config)?;

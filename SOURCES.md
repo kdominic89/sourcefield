@@ -66,8 +66,8 @@ Its transitive libraries are resolved in `Cargo.lock`; no separate direct TLS de
 - Rust 1.99.0 stable distribution: https://static.rust-lang.org/dist/channel-rust-stable.toml
 - wasm-pack 0.15.0: https://crates.io/api/v1/crates/wasm-pack
 - actions/checkout v7.0.1: https://github.com/actions/checkout/releases/tag/v7.0.1
-- actions/upload-artifact v7.0.1: https://github.com/actions/upload-artifact/releases/tag/v7.0.1
-- actions/download-artifact v8.0.1: https://github.com/actions/download-artifact/releases/tag/v8.0.1
+- actions/upload-artifact v7.0.2: https://github.com/actions/upload-artifact/releases/tag/v7.0.2
+- actions/download-artifact v8.0.2: https://github.com/actions/download-artifact/releases/tag/v8.0.2
 - actions/attest v4.2.2: https://github.com/actions/attest/releases/tag/v4.2.2
 - Direct attestation action recommendation: https://github.com/actions/attest-build-provenance/blob/v4.2.2/README.md
 - actions/upload-pages-artifact v5.0.0: https://github.com/actions/upload-pages-artifact/releases/tag/v5.0.0
@@ -168,3 +168,18 @@ The internal tooling package needs no installation or third-party dependency. Sh
 improve caller/IDE support but do not replace validation of release locks or consumer inputs.
 Workflow-source checks enforce the current template's conventions; they are not a general YAML parser
 or evidence of hosted workflow execution.
+
+## Cross-consumer parity verification (October 7, 2026)
+
+- [Reusable workflow inputs and secrets](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#using-inputs-and-secrets-in-a-reusable-workflow)
+  establish explicit caller input and secret forwarding; caller environment variables do not propagate.
+- [Context availability](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability)
+  permits caller inputs and repository variables in `jobs.<job_id>.with`.
+- [Workflow identity in the job context](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#example-usage-of-job-context-workflow-identity)
+  provides the reusable workflow repository and source commit used for authenticated installation.
+- [Optional secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets#using-secrets-in-a-workflow)
+  are empty strings when unset. Warning and public-only continuation are the consumer compatibility contract.
+- Official GitHub release/tag APIs verified checkout v7.0.1, upload-artifact v7.0.2,
+  download-artifact v8.0.2, upload-pages-artifact v5.0.0 and deploy-pages v5.0.1 pins.
+- The official Rust stable manifest and both Playwright npm package records were checked against
+  the committed toolchain and lockfile. These dated checks do not claim future freshness.

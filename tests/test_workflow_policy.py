@@ -128,16 +128,30 @@ class WorkflowPolicyTests(unittest.TestCase):
         # Assert
         self.assertIn("@sha256:", self.update.read_text(encoding="utf-8"))
 
-    def test_accepts_optional_historical_action_and_token_mapping(self):
+    def test_accepts_pinned_pages_action_and_current_optional_token_forwarding(self):
+        """Admit the current explicit optional secret without requiring Pages setup steps."""
         # Arrange
         self.append_step(f"      - uses: actions/configure-pages@{COMMIT}\n")
-        self.append_step("        env:\n          PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}\n")
 
         # Act
         validate_workflows(self.root)
 
         # Assert
-        self.assertIn("PROFILE_TOKEN:", self.update.read_text(encoding="utf-8"))
+        self.assertIn("    secrets:\n      PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}",
+                      self.update.read_text(encoding="utf-8"))
+
+    def test_accepts_workflow_without_optional_profile_token_forwarding(self):
+        """Keep public-only consumers valid without forwarding a private aggregate credential."""
+        # Arrange
+        mapping = "    secrets:\n      PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}\n"
+        source = self.update.read_text(encoding="utf-8").replace(mapping, "")
+        self.update.write_text(source, encoding="utf-8")
+
+        # Act
+        validate_workflows(self.root)
+
+        # Assert
+        self.assertNotIn("secrets.PROFILE_TOKEN", self.update.read_text(encoding="utf-8"))
 
     def test_accepts_quoted_uses_mapping_key(self):
         # Arrange

@@ -197,7 +197,7 @@ async fn main() -> Result<()> {
             config,
             state,
             assets,
-        } => validate(&root.join(config), &root.join(state), &root.join(assets)),
+        } => validate(&root.join(config), &root.join(state), &root.join(assets)).await,
     }
 }
 
@@ -299,9 +299,11 @@ where
     let mut transaction = Transaction::begin(root)?;
 
     // Recovery can restore replay inputs; verify and consume them under this same writer lock.
-    if mode.is_replay() {
-        verify_replay_inputs(config_path, assets_dir)?;
-    }
+    let replay_snapshot = if mode.is_replay() {
+        Some(verify_replay_inputs(config_path, assets_dir)?)
+    } else {
+        None
+    };
 
     let authored = load_config(config_path).context("load profile configuration")?;
     let previous =
@@ -340,14 +342,34 @@ where
     };
 
     validate_config(&config).context("validate profile configuration")?;
-    let fallback_path = if mode.is_replay() {
-        assets_dir.join("source-snapshot.json")
-    } else {
-        fallback_snapshot_path.to_path_buf()
-    };
+    let source_path = assets_dir.join("source-snapshot.json");
+    let published_capture = read_observation_capture(&source_path, mode.is_offline())
+        .context("read last published observation capture")?;
 
-    let fallback =
-        read_json::<Snapshot>(&fallback_path).context("load captured observation snapshot")?;
+    let captured = if let Some(name) = replay_snapshot {
+        std::borrow::Cow::Owned(
+            read_json::<Snapshot>(&assets_dir.join(name))
+                .context("load recorded effective observation snapshot")?,
+        )
+    } else if let Some(capture) = published_capture
+        .as_ref()
+        .filter(|_| !mode.is_offline() || fallback_snapshot_path == source_path)
+    {
+        std::borrow::Cow::Borrowed(&capture.snapshot)
+    } else {
+        let fallback = read_observation_capture(fallback_snapshot_path, false)
+            .context("load captured observation snapshot")?
+            .map(|capture| capture.snapshot);
+
+        match fallback {
+            Some(snapshot) => std::borrow::Cow::Owned(snapshot),
+            None if !mode.is_offline() => std::borrow::Cow::Owned(Snapshot::default()),
+            None => bail!(
+                "load captured observation snapshot: selected offline capture is missing: {}",
+                fallback_snapshot_path.display()
+            ),
+        }
+    };
 
     let private_counts_requested = private_counts
         || access.private_from_environment
@@ -356,13 +378,6 @@ where
     let profile_token = access.profile_token;
     let include_private_counts = private_counts_requested && profile_token.is_some();
     let private_count_requested_without_token = private_counts_requested && profile_token.is_none();
-
-    let captured = if !mode.is_offline() && assets_dir.join("source-snapshot.json").exists() {
-        read_json::<Snapshot>(&assets_dir.join("source-snapshot.json"))
-            .context("read last published snapshot")?
-    } else {
-        fallback
-    };
 
     let mut snapshot = observations::acquire(mode, &captured, || async {
         let mut snapshot = collect(
@@ -404,6 +419,9 @@ where
     };
 
     let resolved_config_bytes = serde_json::to_vec_pretty(&config)?;
+    // Graph normalization sorts facts for stable hashes. README order belongs to the
+    // authored composition.
+    let project_readme = render_project_readme(&config);
     let prepared = prepare_profile(&config, &snapshot)?;
     let config = prepared.config();
     let snapshot = if mode.is_replay() {
@@ -425,7 +443,6 @@ where
     load_history(&docs_dir.join("history"))?;
 
     let package_readme = render_package_readme_prepared(config);
-    let project_readme = render_project_readme(config);
     let prepared_readmes = readme_paths
         .iter()
         .map(|path| {
@@ -453,11 +470,30 @@ where
         &serde_json::to_vec_pretty(&state)?,
         adopt_existing,
     )?;
+    let render_snapshot_bytes = serde_json::to_vec_pretty(&snapshot)?;
+    let source_snapshot_bytes = if mode.is_offline() {
+        published_capture
+            .as_ref()
+            .map(|capture| capture.bytes.as_slice())
+            .unwrap_or(&render_snapshot_bytes)
+    } else {
+        &render_snapshot_bytes
+    };
+
+    // A preview is an applied rendering input, not a replacement for the durable live capture.
+    // Both roles must be staged because ownership cleanup removes every unstaged generated file.
     stage_generated(
         &mut transaction,
         root,
         &assets_relative.join("source-snapshot.json"),
-        &serde_json::to_vec_pretty(&snapshot)?,
+        source_snapshot_bytes,
+        adopt_existing,
+    )?;
+    stage_generated(
+        &mut transaction,
+        root,
+        &assets_relative.join("render-snapshot.json"),
+        &render_snapshot_bytes,
         adopt_existing,
     )?;
     stage_generated(
@@ -517,6 +553,7 @@ where
         &docs_relative,
         runtime,
         adopt_existing,
+        &state.profile,
     )?;
     stage_generated(
         &mut transaction,
@@ -531,7 +568,7 @@ where
         &docs_relative,
         &state,
         config.collection.history_limit,
-        !no_history && state.mode == SnapshotMode::Live,
+        !no_history && !mode.is_offline() && state.mode == SnapshotMode::Live,
         adopt_existing,
     )?;
 
@@ -551,7 +588,7 @@ where
         .collect::<Result<BTreeMap<_, _>>>()?;
 
     let record = GenerationRecord {
-        schema_version: 1,
+        schema_version: 2,
         generator_version: env!("CARGO_PKG_VERSION").into(),
         source_revision: env!("SOURCEFIELD_SOURCE_COMMIT").into(),
         generator_fingerprint: env!("SOURCEFIELD_GENERATOR_FINGERPRINT").into(),
@@ -570,7 +607,8 @@ where
         config_path,
         &candidate.join(&assets_relative).join("profile-state.json"),
         &candidate.join(&assets_relative),
-    )?;
+    )
+    .await?;
     load_history(&candidate.join(&docs_relative).join("history"))?;
     transaction.validate()?;
     let report = transaction.commit()?;
@@ -588,18 +626,69 @@ where
     Ok(())
 }
 
-/// Reconstruct semantic state and exact SVG bytes from captured public inputs.
-fn validate(config_path: &Path, state_path: &Path, assets_dir: &Path) -> Result<()> {
+/// Reconstruct captured composition, semantic state and SVG bytes from current authored inputs.
+/// Validation is offline and never treats an unrelated resolved configuration as authored truth.
+async fn validate(config_path: &Path, state_path: &Path, assets_dir: &Path) -> Result<()> {
     let authored = load_config(config_path).context("load profile configuration")?;
-    let config =
-        optional_json::<sourcefield_core::Config>(&assets_dir.join("resolved-config.json"))?
-            .unwrap_or(authored);
+    let resolved_path = assets_dir.join("resolved-config.json");
+    let mut snapshot_file = "source-snapshot.json";
+    let config = if resolved_path.exists() {
+        snapshot_file = verify_replay_inputs(config_path, assets_dir)
+            .context("validate generation provenance")?;
+        let previous = read_json(&assets_dir.join("layout.json"))?;
+        let capture = read_json(&assets_dir.join("import-capture.json"))?;
+        let resolved = imports::resolve(
+            &authored,
+            imports::ResolveOptions {
+                root: config_path
+                    .parent()
+                    .context("configuration directory missing")?,
+                previous: &previous,
+                captured: Some(&capture),
+                mode: ExecutionMode::LockedReplay,
+                token: None,
+            },
+        )
+        .await?;
+
+        let recorded: sourcefield_core::Config = read_json(&resolved_path)?;
+
+        if serde_json::to_value(&recorded)? != serde_json::to_value(&resolved.config)? {
+            bail!("captured inputs resolve differently from the recorded configuration");
+        }
+
+        recorded
+    } else {
+        // Pre-capture direct-authored assets remain readable. Deleting one capture must not
+        // downgrade validation.
+        if !authored.imports.is_empty()
+            || [
+                "generation-record.json",
+                "import-capture.json",
+                "layout.json",
+                "render-snapshot.json",
+            ]
+            .iter()
+            .any(|name| assets_dir.join(name).exists())
+        {
+            bail!("captured generation requires resolved configuration and its generation record");
+        }
+
+        authored
+    };
 
     validate_config(&config).context("validate profile configuration")?;
     let state = read_json::<ProfileState>(state_path).context("load semantic state")?;
     validate_state(&state).context("validate semantic state")?;
-    let snapshot: Snapshot = read_json(&assets_dir.join("source-snapshot.json"))
-        .context("load recorded public source inputs")?;
+    if snapshot_file != "source-snapshot.json" {
+        // The retained source is independently admitted even when the effective snapshot differs.
+        read_observation_capture(&assets_dir.join("source-snapshot.json"), false)
+            .context("load durable observation capture")?
+            .context("durable observation capture is missing: source-snapshot.json")?;
+    }
+
+    let snapshot: Snapshot = read_json(&assets_dir.join(snapshot_file))
+        .context("load recorded effective source inputs")?;
 
     let reconstructed = build_state(&config, &snapshot, state.generated_at.clone())?;
     if serde_json::to_value(&reconstructed)? != serde_json::to_value(&state)? {
@@ -950,11 +1039,67 @@ fn replace_section(readme: &str, kind: &str, section: &str) -> Result<String> {
 
 /// Missing optional captures are different from malformed existing captures.
 fn optional_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<Option<T>> {
-    if !path.exists() {
-        return Ok(None);
+    match fs::symlink_metadata(path) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("inspect optional JSON input {}", path.display()));
+        }
     }
 
     Ok(Some(read_json(path)?))
+}
+
+/// Preserve exact admitted observation bytes alongside their parsed facts for offline restaging.
+struct ObservationCapture {
+    /// Original durable input, including legal whitespace and field ordering.
+    bytes: Vec<u8>,
+    /// Facts used for collection fallback and deliberate preview preparation.
+    snapshot: Snapshot,
+}
+
+/// Missing capture allows first refresh; malformed, nonregular and inaccessible inputs stay errors.
+fn read_observation_capture(path: &Path, retain_bytes: bool) -> Result<Option<ObservationCapture>> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("inspect observation capture {}", path.display()));
+        }
+    };
+
+    if !metadata.is_file() {
+        bail!(
+            "observation capture must be a regular file without symlinks: {}",
+            path.display()
+        );
+    }
+
+    let (bytes, snapshot): (Vec<u8>, Snapshot) = if retain_bytes {
+        let bytes = read_bounded(path)?;
+        let snapshot = serde_json::from_slice(&bytes)
+            .with_context(|| format!("parse observation capture {}", path.display()))?;
+
+        (bytes, snapshot)
+    } else {
+        // Refresh replaces this capture, so streaming avoids retaining a redundant raw allocation.
+        let snapshot = read_json(path)
+            .with_context(|| format!("parse observation capture {}", path.display()))?;
+
+        (Vec::new(), snapshot)
+    };
+
+    // A valid effective seed cannot establish compatibility for a different retained capture.
+    if snapshot.schema_version != 1 {
+        bail!(
+            "unsupported observation capture schema: {}",
+            snapshot.schema_version
+        );
+    }
+
+    Ok(Some(ObservationCapture { bytes, snapshot }))
 }
 
 /// Stage the entire retained history set so ownership cleanup cannot discard live archives.
@@ -995,13 +1140,23 @@ fn stage_history(
         new_archive = Some(file);
     }
 
-    index.states.sort_by(|left, right| {
-        chrono::DateTime::parse_from_rfc3339(&right.generated_at)
-            .ok()
-            .cmp(&chrono::DateTime::parse_from_rfc3339(&left.generated_at).ok())
-            .then_with(|| left.hash.cmp(&right.hash))
-    });
-    index.states.truncate(limit.max(1));
+    if append {
+        index.states.sort_by(|left, right| {
+            chrono::DateTime::parse_from_rfc3339(&right.generated_at)
+                .ok()
+                .cmp(&chrono::DateTime::parse_from_rfc3339(&left.generated_at).ok())
+                .then_with(|| left.hash.cmp(&right.hash))
+        });
+        index.states.truncate(limit.max(1));
+    }
+
+    // Ownership cleanup treats unstaged files as deletions, so disabled history must
+    // restage every retained byte.
+    let index_bytes = if !append && directory.join("index.json").exists() {
+        read_bounded(&directory.join("index.json"))?
+    } else {
+        serde_json::to_vec_pretty(&index)?
+    };
 
     for entry in &index.states {
         let bytes = if new_archive.as_deref() == Some(&entry.file) {
@@ -1023,7 +1178,7 @@ fn stage_history(
         transaction,
         root,
         &docs.join("history/index.json"),
-        &serde_json::to_vec_pretty(&index)?,
+        &index_bytes,
         adopt,
     )?;
 
@@ -1064,10 +1219,11 @@ fn migrate(source: &Path, destination: &Path, variant: &str) -> Result<()> {
     Ok(())
 }
 
-/// Captured inputs required for exact replay; paths are fixed rather than trusted from metadata.
+/// Captured roles required for replay; names never come from untrusted record paths.
 const REPLAY_FILES: &[&str] = &[
     "resolved-config.json",
     "source-snapshot.json",
+    "render-snapshot.json",
     "import-capture.json",
     "layout.json",
     "profile-state.json",
@@ -1093,26 +1249,47 @@ struct GenerationRecord {
 
 /// Reject configuration drift and tampered snapshots after recovery under the held transaction lock.
 /// The caller must retain that lock until the verified inputs have been consumed and published.
-fn verify_replay_inputs(config: &Path, assets: &Path) -> Result<()> {
+fn verify_replay_inputs(config: &Path, assets: &Path) -> Result<&'static str> {
     let record: GenerationRecord = read_json(&assets.join("generation-record.json"))?;
 
-    if record.schema_version != 1
-        || record.generator_version != env!("CARGO_PKG_VERSION")
+    // Older releases use a different envelope; identify their build before admitting its schema.
+    if record.generator_version != env!("CARGO_PKG_VERSION")
         || record.source_revision != env!("SOURCEFIELD_SOURCE_COMMIT")
         || record.generator_fingerprint != env!("SOURCEFIELD_GENERATOR_FINGERPRINT")
-        || record.authored_config_sha256 != file_sha256(config)?
-        || record.inputs.len() != REPLAY_FILES.len()
     {
         bail!(
-            "locked replay requires the recorded generator revision and unchanged authored inputs"
+            "generation provenance generator identity mismatch: use the recorded generator build"
+        );
+    }
+
+    if record.schema_version != 2 {
+        bail!(
+            "unsupported generation record schema: {}",
+            record.schema_version
+        );
+    }
+
+    if record.authored_config_sha256 != file_sha256(config)? {
+        bail!(
+            "generation provenance authored inputs changed: configuration bytes differ from the recorded generation"
+        );
+    }
+
+    if record.inputs.len() != REPLAY_FILES.len() {
+        bail!(
+            "generation provenance input inventory mismatch for schema {}",
+            record.schema_version
         );
     }
 
     for name in REPLAY_FILES {
-        if record.inputs.get(*name) != Some(&file_sha256(assets.join(name))?) {
-            bail!("locked replay input digest mismatch: {name}");
+        let digest = file_sha256(assets.join(name))
+            .with_context(|| format!("read required generation input {name}"))?;
+
+        if record.inputs.get(*name) != Some(&digest) {
+            bail!("generation provenance input digest mismatch: {name}");
         }
     }
 
-    Ok(())
+    Ok("render-snapshot.json")
 }

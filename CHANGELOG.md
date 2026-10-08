@@ -5,6 +5,8 @@ version tag, downloadable artifact or hosted deployment exists.
 
 ## Unreleased
 
+## 0.1.1 - 2026-10-08
+
 ### Fixed
 
 - Repair the fresh-checkout publication verification fixture to retain its explicitly selected

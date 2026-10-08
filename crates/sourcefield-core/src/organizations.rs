@@ -20,6 +20,9 @@ pub type LayoutAssignments = BTreeMap<String, [f32; 2]>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationManifest {
+    /// Canonical repository count policy and text shared by organization consumers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository_caption: Option<crate::RepositoryCaptionConfig>,
     /// Organization-local icon definitions qualified together with project references.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub icons: crate::IconCatalog,
@@ -167,6 +170,10 @@ pub fn parse_organization(text: &str) -> Result<OrganizationManifest, crate::Con
         crate::validate::validate_maintainer(maintainer)?;
     }
 
+    if let Some(caption) = &manifest.repository_caption {
+        crate::repository_captions::validate_config(caption)?;
+    }
+
     validate_manifest_icons(&manifest).map_err(crate::ConfigError::Validation)?;
 
     Ok(manifest)
@@ -228,6 +235,10 @@ pub fn compose_organizations(
             crate::validate::validate_maintainer(maintainer)?;
         }
 
+        if let Some(caption) = &organization.repository_caption {
+            crate::repository_captions::validate_config(caption)?;
+        }
+
         validate_manifest_icons(organization)?;
 
         for (key, definition) in &organization.icons {
@@ -279,6 +290,7 @@ pub fn compose_organizations(
         field_bottom = field_bottom.max(domain_anchor[1] + 160.0);
         assignments.insert(domain_key, domain_anchor);
         config.domains.push(DomainConfig {
+            repository_caption: organization.repository_caption.clone(),
             maintainer: organization.maintainer.clone(),
             id: organization.id.clone(),
             label: organization.label.clone(),

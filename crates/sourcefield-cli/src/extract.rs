@@ -526,6 +526,7 @@ fn split_with_lookup(
         owner: domain.owner.clone(),
         label: domain.label.clone(),
         summary: domain.summary.clone(),
+        repository_caption: domain.repository_caption.clone(),
         maintainer,
         technologies,
         projects,

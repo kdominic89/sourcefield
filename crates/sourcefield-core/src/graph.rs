@@ -103,6 +103,7 @@ pub fn build_prepared_state(
 
     for domain in &config.domains {
         nodes.push(Node {
+            repository_caption: crate::repository_captions::resolve(config, domain, snapshot),
             icon: None,
             display_stack: Vec::new(),
             label_prefix: None,
@@ -137,6 +138,7 @@ pub fn build_prepared_state(
     for project in &config.projects {
         let project_id = format!("project:{}", project.id);
         nodes.push(Node {
+            repository_caption: None,
             icon: project.icon.clone(),
             display_stack: project.display_stack.clone(),
             label_prefix: project.label_prefix.clone(),
@@ -177,6 +179,7 @@ pub fn build_prepared_state(
             let orbit = project.weight * 20.0 + 78.0;
             let component_id = format!("component:{}:{}", project.id, component.id);
             nodes.push(Node {
+                repository_caption: None,
                 icon: None,
                 display_stack: Vec::new(),
                 label_prefix: None,
@@ -267,6 +270,7 @@ pub fn build_prepared_state(
     for publication in &config.publications {
         let publication_id = format!("publication:{}", publication.id);
         nodes.push(Node {
+            repository_caption: None,
             icon: None,
             display_stack: Vec::new(),
             label_prefix: None,
@@ -319,6 +323,7 @@ pub fn build_prepared_state(
             }
 
             nodes.push(Node {
+                repository_caption: None,
                 icon: None,
                 display_stack: Vec::new(),
                 label_prefix: None,
@@ -366,6 +371,7 @@ pub fn build_prepared_state(
 
         let technology_id = format!("technology:{}", technology.id);
         nodes.push(Node {
+            repository_caption: None,
             icon: None,
             display_stack: Vec::new(),
             label_prefix: None,
@@ -421,6 +427,7 @@ pub fn build_prepared_state(
 
     for (index, interest) in config.interests.iter().enumerate() {
         nodes.push(Node {
+            repository_caption: None,
             icon: None,
             display_stack: Vec::new(),
             label_prefix: None,
@@ -612,6 +619,7 @@ fn add_discovered_repositories(
         let anchor = ownership.anchor;
         let node_id = format!("repository:{}", repository.full_name);
         nodes.push(Node {
+            repository_caption: None,
             icon: None,
             display_stack: Vec::new(),
             label_prefix: None,
@@ -779,13 +787,16 @@ fn source_available(snapshot: &Snapshot, source: &str) -> bool {
         .sources
         .iter()
         .find(|item| item.source.eq_ignore_ascii_case(source))
-        .map(|item| {
-            matches!(
-                item.status,
-                crate::DataStatus::Live | crate::DataStatus::Preview | crate::DataStatus::Fallback
-            )
-        })
+        .map(|item| source_is_complete(item.status))
         .unwrap_or(true)
+}
+
+/// Whether one source observation provides a complete value for presentation.
+pub(crate) fn source_is_complete(status: crate::DataStatus) -> bool {
+    matches!(
+        status,
+        crate::DataStatus::Live | crate::DataStatus::Preview | crate::DataStatus::Fallback
+    )
 }
 
 /// Canonicalize unordered graph declarations; presentation sequences retain their authored order.

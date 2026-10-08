@@ -128,6 +128,41 @@ project markers while preserving its original text. Duplicate headings, partial 
 intervening prose fail with a diagnostic. Already marked sections remain unchanged. Normal
 generation requires explicit complete marker pairs and never guesses authored boundaries.
 
+## Updating repository captions
+
+Caption wording and count source belong in profile configuration or the owning canonical organization
+manifest; see [repository captions](configuration.md#repository-captions) for the typed fields and
+count semantics. Configure an imported organization once in its manifest so both profile variants
+receive the same definition. A selected-project caption counts approved visible project entries;
+an owner caption uses available owner observations and the existing private publication authorization.
+Missing observations remain unknown, including every organization's private owner total.
+
+The existing `v0.1.1` release cannot parse the new fields. First release a generator containing this
+feature, then upgrade each consumer to that matched CLI/runtime and workflow pin and regenerate.
+Upgrade every importer before publishing new fields to a shared canonical manifest; an old consumer
+tracking `main` rejects them. For the personal and organization pair, first upgrade the personal
+consumer while the canonical manifest remains compatible. Then upgrade the organization consumer and
+publish its caption setting; the personal consumer adopts it on its next normal refresh.
+
+Subsequent caption edits use the same supported generator: update the owned configuration, then run
+the normal refresh or offline preview. They need neither another generator release nor a new
+consumer installation or pin.
+
+For a rollback to `v0.1.1`, restore a complete compatible profile revision: authored configuration,
+captured imports, generated output, history and matching CLI/runtime and workflow pins. The older
+parser rejects `Node.repository_caption` in states and history too. Generation loads existing history
+before publishing, even with `--no-history`, so it cannot rewrite newer archives in place. Repinning
+only the CLI/runtime or removing only authored caption fields is insufficient. Before a live refresh,
+replace any remote import tracking an incompatible `main` manifest with a compatible revision.
+
+Normal generation resolves current local canonical content; a live refresh fetches the configured
+remote ref, while an offline preview uses its captured remote content. A pinned canonical commit
+requires an explicit ref change before its newer content can be selected. Authored profile edits
+invalidate the previous generation record. Regenerate to adopt edited canonical content into a new
+record; validation and locked replay consume the captured definition without consulting newer source
+manifests. Offline preview cannot authorize new private observations. Preserve the current capture
+and history through the existing transaction and generation rules.
+
 ## Organization extraction
 
 Use `sourcefield extract-organization --config PATH --organization ID --destination NEWDIR`
@@ -143,7 +178,9 @@ paths are rebased to the original live files from the new profile directory; tho
 copied or frozen. Subsequent canonical changes remain visible to normal generation. Remote
 repository/ref declarations and their captured commit, repository identity, digest and manifest bytes
 are preserved. Extracting an already imported organization retains its complete canonical manifest,
-including local IDs and definitions that no project currently uses.
+including local IDs and definitions that no project currently uses. Inline extraction copies its
+optional repository-caption source and labels into that manifest; unrelated inline domains retain
+their own settings. There is no consumer-side copy of the extracted organization's caption policy.
 
 The export also includes `<assets>/import-capture.json` and `<assets>/layout.json` as owned generated
 inputs. Use the same `--assets` value for subsequent generation in `NEWDIR`. These files preserve

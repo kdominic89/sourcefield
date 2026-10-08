@@ -5,6 +5,16 @@ version tag, downloadable artifact or hosted deployment exists.
 
 ## Unreleased
 
+### Added
+
+- Configure ownership-domain repository captions with typed count sources and bounded plain-text
+  labels. Count selected visible projects or available owner observations while preserving unknowns,
+  known zeros and existing private publication authorization. Canonical organization manifests own
+  the shared setting, retained through composition and extraction in both profile variants.
+  Resolve captions once in Core for SVG text and accessible labels; omitted settings preserve legacy
+  state hashes and output. After the first supporting generator upgrade, caption edits require only
+  normal generation with the same build and pins.
+
 ## 0.1.1 - 2026-10-08
 
 ### Fixed

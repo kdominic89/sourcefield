@@ -267,6 +267,10 @@ fn validate_configuration(
         insert(&mut ids, &format!("domain:{}", domain.id))?;
         validate_github_handle(&domain.owner)?;
 
+        if let Some(caption) = &domain.repository_caption {
+            crate::repository_captions::validate_config(caption)?;
+        }
+
         if let Some(maintainer) = &domain.maintainer {
             validate_maintainer(maintainer)?;
         }
@@ -427,6 +431,16 @@ pub fn validate_state(state: &ProfileState) -> Result<(), ValidationError> {
     crate::validate_icon_catalog(&state.icons)?;
 
     for node in &state.nodes {
+        if let Some(caption) = &node.repository_caption {
+            if node.kind != NodeKind::Domain {
+                return Err(ValidationError::InvalidValue(
+                    "repository captions are supported only on domain nodes".into(),
+                ));
+            }
+
+            crate::repository_captions::validate_materialized(caption)?;
+        }
+
         if node.icon.is_some() && node.kind != NodeKind::Project {
             return Err(ValidationError::InvalidValue(
                 "icon references are supported only on project nodes".into(),

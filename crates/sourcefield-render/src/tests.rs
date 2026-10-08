@@ -471,3 +471,164 @@ fn unicode_public_text_preserves_content_and_escapes_markup() {
     assert!(svg.contains("Caf\u{00e9} &lt;tools&gt; &amp; \u{03bb}"));
     assert!(!svg.contains("<tools>"));
 }
+
+/// Materialize an explicit caption without modifying project selection or observations.
+fn caption_fixture() -> ProfileState {
+    let (mut config, _) = fixture();
+    config.domains[0].repository_caption =
+        Some(serde_json::from_value(serde_json::json!({"source": "selected-projects"})).unwrap());
+
+    sourcefield_core::build_state(&config, &sourcefield_core::Snapshot::default(), "fixture")
+        .unwrap()
+}
+
+#[test]
+fn configured_caption_is_shared_by_all_svg_themes() {
+    // Arrange
+    let state = caption_fixture();
+
+    // Act
+    let variants = [
+        render_svg(&state, Theme::Dark, true),
+        render_svg(&state, Theme::Light, true),
+        render_svg(&state, Theme::Dark, false),
+    ];
+
+    // Assert
+    assert!(
+        variants
+            .iter()
+            .all(|svg| svg.contains(">3 public / 0 private repos</text>"))
+    );
+    assert!(
+        variants
+            .iter()
+            .all(|svg| svg.matches("data-node-kind=\"project\"").count() == 3)
+    );
+}
+
+#[test]
+fn configured_caption_is_plain_text_and_escaped_once() {
+    // Arrange
+    let (mut config, _) = fixture();
+    config.domains[0].repository_caption = Some(
+        serde_json::from_value(serde_json::json!({
+            "source": "selected-projects", "public_label": "<open> & {count}",
+            "private_label": "closed", "suffix": "repositories"
+        }))
+        .unwrap(),
+    );
+    let state =
+        sourcefield_core::build_state(&config, &sourcefield_core::Snapshot::default(), "fixture")
+            .unwrap();
+
+    // Act
+    let svg = render_svg(&state, Theme::Dark, false);
+
+    // Assert
+    assert!(svg.contains(">3 &lt;open&gt; &amp; {count} / 0 closed repositories</text>"));
+    assert!(!svg.contains("<open>"));
+    assert!(!svg.contains("&amp;lt;"));
+    assert!(svg.contains("3 &lt;open&gt; &amp; {count} / 0 closed repositories\""));
+}
+
+#[test]
+fn materialized_caption_aligns_accessibility_without_replacing_stored_or_project_summary() {
+    // Arrange
+    let (_, legacy) = fixture();
+    let state = caption_fixture();
+    let domain = state
+        .nodes
+        .iter()
+        .find(|node| node.kind == NodeKind::Domain)
+        .unwrap();
+
+    // Act
+    let svg = render_svg(&state, Theme::Dark, false);
+
+    // Assert
+    assert_eq!(state.nodes[0].summary, legacy.nodes[0].summary);
+    assert!(svg.contains("Synthetic public tool"));
+    assert!(svg.contains(&format!(
+        "aria-label=\"{}: {}\"",
+        domain.label,
+        domain.repository_caption.as_deref().unwrap()
+    )));
+    assert!(!svg.contains(&format!(
+        "aria-label=\"{}: {}\"",
+        domain.label, domain.summary
+    )));
+    assert!(svg.contains("data-node-kind=\"domain\""));
+    assert_eq!(
+        serde_json::to_value(&state.edges).unwrap(),
+        serde_json::to_value(&legacy.edges).unwrap()
+    );
+}
+
+#[test]
+fn legacy_history_without_config_keeps_published_caption() {
+    // Arrange
+    let (_, mut state) = fixture();
+    state.stats.personal_public_repositories = Some(12);
+    state.stats.private_repository_count = Some(9);
+    let domain = state
+        .nodes
+        .iter()
+        .find(|node| node.kind == NodeKind::Domain)
+        .unwrap();
+
+    // Act
+    let svg = render_svg(&state, Theme::Dark, false);
+
+    // Assert
+    assert!(svg.contains(">3 public / 0 private</text>"));
+    assert!(!svg.contains(">3 public / 0 private repos</text>"));
+    assert!(
+        state
+            .nodes
+            .iter()
+            .all(|node| node.repository_caption.is_none())
+    );
+    assert!(svg.contains(&format!(
+        "aria-label=\"{}: {}\"",
+        domain.label, domain.summary
+    )));
+}
+
+#[test]
+fn legacy_caption_counts_only_shown_projects() {
+    // Arrange
+    let (mut config, _) = fixture();
+    config.projects[0].show_in_readme = false;
+    let state =
+        sourcefield_core::build_state(&config, &sourcefield_core::Snapshot::default(), "fixture")
+            .unwrap();
+
+    // Act
+    let svg = render_svg(&state, Theme::Dark, false);
+
+    // Assert
+    assert_eq!(state.nodes[0].summary, "3 public / 0 private");
+    assert!(svg.contains(">2 public / 0 private</text>"));
+    assert!(!svg.contains(">3 public / 0 private</text>"));
+}
+
+#[test]
+fn legacy_private_only_caption_keeps_published_wording() {
+    // Arrange
+    let (mut config, _) = fixture();
+    for project in &mut config.projects {
+        project.visibility = Visibility::PrivateAbstract;
+    }
+
+    let state =
+        sourcefield_core::build_state(&config, &sourcefield_core::Snapshot::default(), "fixture")
+            .unwrap();
+
+    // Act
+    let svg = render_svg(&state, Theme::Dark, false);
+
+    // Assert
+    assert!(svg.contains(">3 private projects</text>"));
+    assert!(!svg.contains(">0 public / 3 private repos</text>"));
+}

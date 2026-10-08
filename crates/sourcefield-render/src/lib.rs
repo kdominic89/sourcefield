@@ -633,13 +633,20 @@ fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette, m
     let color = node_color(node, p);
     let domain = node.kind == NodeKind::Domain;
     let kind = if domain { "domain" } else { "project" };
+    // Describe the visible inventory; the stored summary still serves legacy states and projects.
+    let accessible_summary = if domain {
+        node.repository_caption.as_deref().unwrap_or(&node.summary)
+    } else {
+        &node.summary
+    };
+
     let _ = write!(
         output,
         "<g class=\"project\" tabindex=\"0\" role=\"group\" aria-label=\"{}: \
          {}\" data-node-id=\"{}\" data-node-kind=\"{kind}\" data-domain=\"{}\" \
          data-x=\"{}\" data-y=\"{}\">",
         xml(&node.label),
-        xml(&node.summary),
+        xml(accessible_summary),
         xml(&node.id),
         xml(node.domain.as_deref().unwrap_or("")),
         actual.0,
@@ -679,29 +686,13 @@ fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette, m
         "middle",
         "node-label",
     );
-    if domain {
-        let projects = state
-            .nodes
-            .iter()
-            .filter(|other| {
-                other.show_in_readme
-                    && other.kind == NodeKind::Project
-                    && other.domain == node.domain
-            })
-            .fold((0, 0), |(public, private), other| {
-                if other.visibility == Some(Visibility::Public) {
-                    (public + 1, private)
-                } else {
-                    (public, private + 1)
-                }
-            });
 
-        let (public, private) = projects;
-        let summary = if public == 0 {
-            format!("{private} private projects")
-        } else {
-            format!("{public} public / {private} private")
-        };
+    if domain {
+        // Captions are materialized once from validated inputs; legacy history keeps its old copy.
+        let summary = node.repository_caption.as_deref().map_or_else(
+            || std::borrow::Cow::Owned(legacy_repository_caption(state, node)),
+            std::borrow::Cow::Borrowed,
+        );
 
         text(
             output,
@@ -744,6 +735,29 @@ fn project(output: &mut String, node: &Node, state: &ProfileState, p: Palette, m
     }
 
     output.push_str("</g></g>");
+}
+
+/// Preserve the published caption for states that predate explicit caption configuration.
+fn legacy_repository_caption(state: &ProfileState, node: &Node) -> String {
+    let (public, private) = state
+        .nodes
+        .iter()
+        .filter(|other| {
+            other.show_in_readme && other.kind == NodeKind::Project && other.domain == node.domain
+        })
+        .fold((0, 0), |(public, private), other| {
+            if other.visibility == Some(Visibility::Public) {
+                (public + 1, private)
+            } else {
+                (public, private + 1)
+            }
+        });
+
+    if public == 0 {
+        format!("{private} private projects")
+    } else {
+        format!("{public} public / {private} private")
+    }
 }
 
 /// Group linked package rows by their publication parent rather than inferred name prefixes.

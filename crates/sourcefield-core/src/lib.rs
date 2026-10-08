@@ -15,6 +15,7 @@ mod model;
 mod organizations;
 mod privacy;
 mod registry;
+mod repository_captions;
 mod surface_labels;
 mod validate;
 
@@ -28,6 +29,7 @@ pub use registry::{
     render_package_readme_prepared, render_project_readme, restore_package_cache,
     usable_observation, valid_package_id,
 };
+pub use repository_captions::{RepositoryCaptionConfig, RepositoryCaptionSource};
 pub use validate::{ValidationError, validate_config, validate_state};
 
 #[cfg(test)]

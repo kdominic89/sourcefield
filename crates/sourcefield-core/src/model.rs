@@ -169,6 +169,10 @@ pub struct RenderConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DomainConfig {
+    /// Optional repository count policy and text for this ownership domain.
+    // Omission preserves legacy serialized inputs and their semantic identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository_caption: Option<crate::RepositoryCaptionConfig>,
     /// Canonical public maintainer attribution for this ownership domain.
     #[serde(default)]
     pub maintainer: Option<MaintainerConfig>,
@@ -719,6 +723,9 @@ pub enum NodeKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Node {
+    /// Optional resolved repository caption, supported only on ownership-domain nodes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository_caption: Option<String>,
     /// Optional project icon key resolved against the shared state catalog and built-ins.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,

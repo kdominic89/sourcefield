@@ -34,7 +34,7 @@ an exact vector capacity: Rust permits `Vec::with_capacity` to reserve more than
 requested, and `Read::read_to_end` can grow the allocation.
 
 Separate active allocation-budget tests enforce a product memory target on the
-repository's pinned Rust 1.99.0 toolchain: a successful 64 KiB or 16 MiB file read
+repository's pinned Rust toolchain: a successful 64 KiB or 16 MiB file read
 may retain at most the payload size plus 4 KiB of vector capacity. The 4 KiB margin
 allows excess reservation without accepting a second payload-sized reservation.
 This is a supported-toolchain performance budget, not a standard-library guarantee;

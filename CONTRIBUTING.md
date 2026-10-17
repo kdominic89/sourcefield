@@ -33,6 +33,8 @@ Use [SECURITY.md](SECURITY.md) for vulnerabilities rather than public issues or 
 ## Tool maintenance
 
 Dependabot proposes Cargo, Rust toolchain, GitHub Actions and browser npm updates weekly.
+Cargo minor and patch version updates share one grouped PR; major updates remain separate.
+Grouping does not disable security updates or bypass review and verification.
 `tools/browser/package.json` and its lock pin the existing Playwright tool; install it with
 `npm ci --prefix tools/browser --include=dev --ignore-scripts --no-audit --no-fund`.
 

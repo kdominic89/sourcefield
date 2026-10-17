@@ -782,12 +782,19 @@ for (const [name, source, expected] of [
     ['CSS CDATA', '<svg><style><![CDATA[rect { fill: red; }]]></style><rect /></svg>', '<svg><rect /></svg>'],
     ['text mentioning style', '<svg><text> style=example </text></svg>', '<svg><text> style=example </text></svg>'],
     ['quoted metadata', '<svg data-note=" > style=example" />', '<svg data-note=" > style=example" />'],
+    ['quoted event metadata', '<svg data-note=" > onload=example"><text> onclick=example </text></svg>',
+        '<svg data-note=" > onload=example"><text> onclick=example </text></svg>'],
+    ['entity-quoted event metadata', '<svg data-note="&quot; onclick=example" />',
+        '<svg data-note="&quot; onclick=example" />'],
 ]) {
     test(`profile preprocessing preserves ${name} with one XML parse`, async () => {
+        // Arrange
         const harness = await profileHarness(source);
 
+        // Act
         const svg = harness.evaluate('parseProfileSvg(source)');
 
+        // Assert
         assert.equal(svg, harness.svg);
         assert.deepEqual(harness.parses, [{ markup: expected, type: 'image/svg+xml' }]);
     });
@@ -808,17 +815,27 @@ for (const [name, body] of [
     ['style attribute after a quoted angle', '<rect data-note=">" style="fill: red" />'],
     ['single-quoted style attribute', "<rect style='fill: red' />"],
     ['multiline style attribute', '<rect\nstyle\t=\n"fill: red" />'],
+    ['event attribute', '<g onload="globalThis.svgProbeExecuted = true" />'],
+    ['recreated event attribute', '<g o<style>discard</style>nload="alert(1)" />'],
+    ['uppercase event attribute', '<g ONLOAD="globalThis.svgProbeExecuted = true" />'],
+    ['qualified event attribute', '<g s:onclick="alert(1)" xmlns:s="http://www.w3.org/2000/svg" />'],
+    ['event attribute after quoted metadata', '<g data-note=" onload=example" onclick="alert(1)" />'],
+    ['multiline event attribute', "<g data-note='>'\nOnClIcK\t=\n'alert(1)' />"],
+    ['bare event prefix attribute', '<g on="alert(1)" />'],
 ]) {
     test(`profile preprocessing rejects ${name} before XML parsing`, async () => {
+        // Arrange
         const harness = await profileHarness(`<svg>${body}</svg>`);
         let failure;
 
+        // Act
         try {
             harness.evaluate('parseProfileSvg(source)');
         } catch (error) {
             failure = error.message;
         }
 
+        // Assert
         assert.equal(failure, 'Invalid profile SVG');
         assert.deepEqual(harness.parses, []);
     });

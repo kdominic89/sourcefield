@@ -289,10 +289,18 @@ async function checkProfileSanitization(context, base) {
         { name: 'multiple CSS blocks', source: wrap(`<style type="text/css">${stylesheet}</style>`
             + `<STYLE>${stylesheet}</STYLE>${geometry}`), accepted: true, parses: 1 },
         { name: 'event attributes', source: wrap('<g onload="globalThis.svgProbeExecuted = true">'
-            + `${geometry}</g>`), accepted: true, parses: 1 },
-        { name: 'quoted metadata and text', source: wrap('<g data-note=" > style=example">'
-            + '<text> style=example </text>' + geometry + '</g>'), accepted: true, parses: 1,
-            metadata: { note: ' > style=example', text: ' style=example ' } },
+            + `${geometry}</g>`), accepted: false, parses: 0 },
+        { name: 'recreated event attributes', source: wrap('<g o<style>discard</style>'
+            + `nload="globalThis.svgProbeExecuted = true">${geometry}</g>`), accepted: false, parses: 0 },
+        { name: 'root event attributes', source: '<svg xmlns="http://www.w3.org/2000/svg"'
+            + ` onload="globalThis.svgProbeExecuted = true">${geometry}</svg>`, accepted: false, parses: 0 },
+        { name: 'qualified event attributes', source: wrap('<g xmlns:s="http://www.w3.org/2000/svg"'
+            + ` s:onload="globalThis.svgProbeExecuted = true">${geometry}</g>`), accepted: false, parses: 0 },
+        { name: 'multiline event attributes', source: wrap("<g data-note='>'\nOnClIcK\t=\n"
+            + `'globalThis.svgProbeExecuted = true'>${geometry}</g>`), accepted: false, parses: 0 },
+        { name: 'quoted metadata and text', source: wrap('<g data-note=" > style=example onload=example">'
+            + '<text> style=example onclick=example </text>' + geometry + '</g>'), accepted: true, parses: 1,
+            metadata: { note: ' > style=example onload=example', text: ' style=example onclick=example ' } },
         { name: 'inline style attribute', source: wrap('<g style="fill: red">' + geometry + '</g>'),
             accepted: false, parses: 0 },
         { name: 'inline style after quoted angle', source: wrap('<g data-note=">" style="fill: red">'

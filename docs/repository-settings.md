@@ -51,7 +51,9 @@ email delivery additionally depends on that account's notification preferences.
 ## Tool updates and verification
 
 Dependabot covers Cargo, GitHub Actions, `rust-toolchain.toml` and the authored Playwright npm
-manifest/lock. `npm ci` consumes the lock without changing it. CI retains the full Chromium build
+manifest/lock. Cargo minor/patch version updates are grouped to reduce parallel PRs; unmatched
+major updates remain individual reviews. No ignore rule suppresses dependency or security updates.
+`npm ci` consumes the lock without changing it. CI retains the full Chromium build
 and an AppArmor policy for its exact executable path rather than disabling the browser sandbox.
 
 wasm-pack's exact pin lives in `tools/wasm-pack-version.txt`, consumed by local and CI builds.

@@ -35,6 +35,13 @@ base paths. Verify light/dark themes, reduced motion, keyboard navigation, mobil
 selection and JavaScript fallback, then repeat with the actual WASM bundle. Inspect node/label/curve
 geometry at normal README width. Test an empty site destination and a runtime upgrade.
 
+The SVG boundary rejects inline styles and event attribute names before `DOMParser`, including
+qualified names, mixed case and whitespace variants. Quoted metadata and text mentioning those
+names stay inert and accepted. Chromium may evaluate script/style policy during XML parsing, so
+cleanup after parsing cannot replace this boundary. Browser probes retain strict assertions for
+zero execution, external requests and unexpected CSP violations; malformed-XML diagnostics retain
+only their explicitly identified browser-generated style exception.
+
 For performance work, record toolchain, OS/CPU, input sizes, warmup, sample count and measurement
 method. Compare identical input captures, include growth/capacity boundaries and assess peak memory
 as well as elapsed time. Avoid asserting a universal speedup from one machine. Release ZIP hashing

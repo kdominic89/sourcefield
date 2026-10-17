@@ -27,8 +27,8 @@ The current Playwright pin and dependency closure live in `tools/browser/package
 `tools/browser/package-lock.json`; dated registry observations below are historical evidence.
 
 - Playwright CI/browser provisioning: https://playwright.dev/docs/ci
-- Exact existing browser test tool metadata: https://registry.npmjs.org/playwright/1.63.0
-  (primary registry returned version 1.63.0 and exact playwright-core dependency 1.63.0; checked 2026-10-04).
+- Existing browser test tool: [authoritative manifest](tools/browser/package.json) and
+  [official registry metadata](https://registry.npmjs.org/playwright); current dated versions are below.
 
 - Dependabot ecosystems, weekly schedules and grouped Actions updates: https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
 
@@ -39,7 +39,7 @@ Rust distribution manifest, and the official tool/Action releases. Record the re
 resolved Action commit; a successful build alone does not establish dependency freshness. Recheck
 these sources before proposing publication. Future releases can make this dated snapshot obsolete.
 
-Verified on 2026-10-04:
+Verified on 2026-10-17:
 
 | Direct crate | Exact pin | Primary release metadata |
 | --- | --- | --- |
@@ -49,21 +49,21 @@ Verified on 2026-10-04:
 | hex | 0.4.3 | https://crates.io/api/v1/crates/hex |
 | reqwest | 0.13.5 | https://crates.io/api/v1/crates/reqwest |
 | serde | 1.0.229 | https://crates.io/api/v1/crates/serde |
-| serde_json | 1.0.151 | https://crates.io/api/v1/crates/serde_json |
-| sha2 | 0.11.0 | https://crates.io/api/v1/crates/sha2 |
+| serde_json | 1.0.154 | https://crates.io/api/v1/crates/serde_json |
+| sha2 | 0.11.1 | https://crates.io/api/v1/crates/sha2 |
 | thiserror | 2.0.21 | https://crates.io/api/v1/crates/thiserror |
-| tokio | 1.53.2 | https://crates.io/api/v1/crates/tokio |
-| toml | 1.1.6+spec-1.1.0 | https://crates.io/api/v1/crates/toml |
+| tokio | 1.53.3 | https://crates.io/api/v1/crates/tokio |
+| toml | 1.1.8+spec-1.1.0 | https://crates.io/api/v1/crates/toml |
 | wasm-bindgen | 0.2.129 | https://crates.io/api/v1/crates/wasm-bindgen |
 
-Cargo's TOML requirement uses `=1.1.6` because build metadata is ignored in version requirements;
+Cargo's TOML requirement uses `=1.1.8` because build metadata is ignored in version requirements;
 the lockfile retains the complete published version. Reqwest 0.13 moves query encoding behind the
 `query` feature and selects Rustls with `rustls`; only `json`, `query` and `rustls` are enabled here.
 The Rustls backend now uses reqwest's default AWS-LC provider and platform certificate verifier.
 Its transitive libraries are resolved in `Cargo.lock`; no separate direct TLS dependency is added.
 
 - Reqwest 0.13 changes: https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0
-- Rust 1.99.0 stable distribution: https://static.rust-lang.org/dist/channel-rust-stable.toml
+- Rust 1.99.1 stable distribution: https://static.rust-lang.org/dist/channel-rust-stable.toml
 - wasm-pack 0.15.0: https://crates.io/api/v1/crates/wasm-pack
 - actions/checkout v7.0.1: https://github.com/actions/checkout/releases/tag/v7.0.1
 - actions/upload-artifact v7.0.2: https://github.com/actions/upload-artifact/releases/tag/v7.0.2
@@ -78,6 +78,40 @@ Its transitive libraries are resolved in `Cargo.lock`; no separate direct TLS de
 
 - Rustls platform certificate-store behavior: https://github.com/rustls/rustls-platform-verifier/blob/main/README.md
 - AWS-LC native build requirements: https://aws.github.io/aws-lc-rs/requirements/index.html
+
+The 2026-10-17 check includes the browser tool and all six existing Action pins, including the
+consumer-template Pages Actions. Playwright 1.64.1 is the current stable patch, newer than the
+1.64.0 Dependabot proposal. Its npm lock binds the exact playwright/playwright-core tarball
+integrities; Node >=20 remains supported. All Action release commits above remain current.
+sha2 0.11.1 requires Rust 1.88, below the workspace's existing 1.99 minimum. The selected toolchain
+is the stable 1.99.1 patch; no minimum-version or feature expansion is needed.
+
+- Playwright 1.64.1 package metadata: https://registry.npmjs.org/playwright/1.64.1
+- Playwright core integrity metadata: https://registry.npmjs.org/playwright-core/1.64.1
+- Playwright patch notes: https://github.com/microsoft/playwright/releases/tag/v1.64.1
+- Chromium revision and version: https://github.com/microsoft/playwright/blob/v1.64.1/packages/playwright-core/browsers.json
+- Rust patch announcement: https://blog.rust-lang.org/2026/10/15/Rust-1.99.1/
+- Minor/patch Dependabot groups: https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#update-types-groups
+- Published 0.1.2 identity and date: https://api.github.com/repos/kdominic89/sourcefield/releases/tags/v0.1.2
+
+The dependency PR's actual Chromium 156 regression reached script policy evaluation during XML
+parsing, before detached-tree event cleanup. The runtime now rejects event attributes at the same
+quote-aware pre-parse boundary as inline styles. Unit and real-browser probes require no XML parse
+for rejected event names, no executed handler, no external request and no unexpected CSP violation.
+Observed browser behavior and locally executed verification remain separate from vendor API claims.
+
+The separate local RustSec audit also identified RUSTSEC-2026-0346 through RUSTSEC-2026-0349
+in the locked transitive Rustls 0.23.45, despite no open repository Dependabot alerts. Its targeted
+lockfile update selects patched 0.23.46 under the unchanged Reqwest dependency and TLS features.
+The advisory conditions differ; a vulnerable lockfile version alone is not proof that every
+exploit path is enabled in this application. No custom client session store, explicit ECH mode,
+or Rustls Brotli feature is introduced by the fix.
+
+- Rustls registry and checksum: https://crates.io/api/v1/crates/rustls/0.23.46
+- Client session debug redaction: https://rustsec.org/advisories/RUSTSEC-2026-0346.html
+- ECH rejection ordering: https://rustsec.org/advisories/RUSTSEC-2026-0347.html
+- Optional Brotli certificate memory bound: https://rustsec.org/advisories/RUSTSEC-2026-0348.html
+- Authenticated key-share prediction: https://rustsec.org/advisories/RUSTSEC-2026-0349.html
 
 ## Ubuntu browser sandbox
 

@@ -5,6 +5,21 @@ version tag, downloadable artifact or hosted deployment exists.
 
 ## Unreleased
 
+### Changed
+
+- Update the pinned Rust toolchain to 1.99.1, serde_json to 1.0.154, sha2 to 0.11.1,
+  Tokio to 1.53.3, TOML to 1.1.8, and the Playwright browser tool to 1.64.1.
+- Group compatible Cargo minor and patch version updates while keeping major updates separate.
+
+### Fixed
+
+- Update the transitive Rustls TLS implementation to 0.23.46, resolving four RustSec advisories
+  without adding a direct TLS dependency or changing enabled features.
+- Reject inline SVG event attributes before XML parsing, avoiding parser-time script policy
+  violations in current Chromium while preserving harmless metadata and strict browser checks.
+
+## 0.1.2 - 2026-10-08
+
 ### Added
 
 - Configure ownership-domain repository captions with typed count sources and bounded plain-text

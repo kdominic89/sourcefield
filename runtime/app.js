@@ -1165,9 +1165,12 @@ function parseProfileSvg(source) {
         throw new Error('Invalid profile SVG');
     }
 
-    // Attribute styles also trigger CSP during XML parsing; quoted values are not attribute names.
+    // Chromium checks inline styles and event handlers during XML parsing, before DOM cleanup.
+    // Reject attribute names here while preserving the same words inside quoted metadata values.
+    const activeAttributes = /"[^"]*"|'[^']*'|(\s(?:[^\s"'=<>]*:)?(?:style|on[^\s"'=<>]*)\s*=)/gi;
+
     for (const tag of markup.matchAll(/<(?![/?!\s])(?:[^<>"']|"[^"<]*"|'[^'<]*')*>/g)) {
-        for (const attribute of tag[0].matchAll(/"[^"]*"|'[^']*'|(\s(?:[^\s"'=<>]*:)?style\s*=)/gi)) {
+        for (const attribute of tag[0].matchAll(activeAttributes)) {
             if (attribute[1]) throw new Error('Invalid profile SVG');
         }
     }

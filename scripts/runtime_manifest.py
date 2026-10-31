@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import tomllib
 
 
@@ -25,9 +26,16 @@ SOURCE_INPUTS = (
     "runtime/site.webmanifest",
     "crates/sourcefield-wasm/src/lib.rs",
     "crates/sourcefield-core/src/model.rs",
+    "Cargo.toml",
     "Cargo.lock",
+    ".cargo/config.toml",
     "rust-toolchain.toml",
-    "tools/wasm-pack-version.txt",
+    "crates/sourcefield-wasm/Cargo.toml",
+    "scripts/build-wasm.sh",
+    "scripts/build_wasm.py",
+    "scripts/sourcefield_tools/binaryen.py",
+    "tools/binaryen.json",
+    "tools/sourcefield-wasm/Cargo.toml",
 )
 RUNTIME_FILES = (
     "index.html", "app.css", "app.js", "simulation-fallback.js", "favicon.svg",
@@ -60,10 +68,47 @@ def read_regular(root: Path, relative: str) -> bytes:
     return data
 
 
+def source_inputs(root: Path) -> tuple[str, ...]:
+    """Append sorted authored helper inputs; new Rust modules cannot escape provenance."""
+    directory = root / "tools/sourcefield-wasm"
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError("binding helper source must be a real directory")
+
+    def reject_walk_error(error: OSError) -> None:
+        """Missing or unreadable source subtrees must fail rather than disappear from identity."""
+        raise error
+
+    names = []
+    for current, directories, files in os.walk(directory, followlinks=False, onerror=reject_walk_error):
+        for name in directories + files:
+            path = Path(current) / name
+            if path.is_symlink():
+                raise ValueError("symlink in binding helper source")
+
+        directories[:] = [name for name in directories if name not in {"target", ".git"}]
+        for name in files:
+            path = Path(current) / name
+            if path.suffix == ".rs" or name == "Cargo.toml":
+                if not stat.S_ISREG(path.stat().st_mode):
+                    raise ValueError("binding helper source must be a regular file")
+
+                relative = path.relative_to(root).as_posix()
+                if not relative.isascii():
+                    raise ValueError("source input paths must be ASCII")
+
+                if relative not in SOURCE_INPUTS:
+                    names.append(relative)
+
+    if "tools/sourcefield-wasm/src/main.rs" not in names:
+        raise ValueError("binding helper main.rs is required")
+
+    return SOURCE_INPUTS + tuple(sorted(names))
+
+
 def source_fingerprint(root: Path) -> str:
     """Match build.rs using explicit path/byte lengths, never absolute paths or mtimes."""
     digest = hashlib.sha256(b"sourcefield-runtime-source-v1\0")
-    for name in SOURCE_INPUTS:
+    for name in source_inputs(root):
         encoded = name.encode("ascii")
         data = read_regular(root, name)
         digest.update(len(encoded).to_bytes(8, "big"))

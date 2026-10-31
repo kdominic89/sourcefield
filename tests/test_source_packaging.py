@@ -23,7 +23,15 @@ class PackageTests(unittest.TestCase):
             for name in (
                 "Cargo.lock",
                 "SOURCES.md",
-                "tools/wasm-pack-version.txt",
+                "tools/binaryen.json",
+                "tools/sourcefield-wasm/Cargo.toml",
+                "tools/sourcefield-wasm/src/main.rs",
+                "tools/sourcefield-wasm/build.rs",
+                "tools/sourcefield-wasm/build_support/schema.rs",
+                "tools/sourcefield-wasm/src/bindings.rs",
+                "tools/sourcefield-wasm/src/target/generated.rs",
+                "tools/sourcefield-wasm/src/generated.wasm",
+                "tools/sourcefield-wasm/private.md",
                 "tools/browser/package.json",
                 "tools/browser/package-lock.json",
                 "tools/browser/node_modules/playwright/cli.js",
@@ -62,7 +70,12 @@ class PackageTests(unittest.TestCase):
                         "sourcefield/tests/integration/field.mjs",
                         "sourcefield/SHA256SUMS",
                         "sourcefield/SOURCES.md",
-                        "sourcefield/tools/wasm-pack-version.txt",
+                        "sourcefield/tools/binaryen.json",
+                        "sourcefield/tools/sourcefield-wasm/Cargo.toml",
+                        "sourcefield/tools/sourcefield-wasm/src/main.rs",
+                        "sourcefield/tools/sourcefield-wasm/build.rs",
+                        "sourcefield/tools/sourcefield-wasm/build_support/schema.rs",
+                        "sourcefield/tools/sourcefield-wasm/src/bindings.rs",
                         "sourcefield/tools/browser/package.json",
                         "sourcefield/tools/browser/package-lock.json",
                         "sourcefield/docs/site.webmanifest",
@@ -152,6 +165,11 @@ class PackageTests(unittest.TestCase):
             "crates/sourcefield-workspace/.private/README.md", "crates/unapproved/README.md",
             "tests/dist/output.json", "runtime/pkg/generated.js", "runtime/runtime-manifest.json",
             "tools/browser/node_modules/playwright/cli.js", "docs/preview/unapproved.bin",
+            "tools/wasm-pack-version.txt", "tools/sourcefield-wasm/target/cache.rs",
+            "tools/sourcefield-wasm/src/target/generated.rs",
+            "tools/sourcefield-wasm/src/__pycache__/cache.rs",
+            "tools/sourcefield-wasm/src/generated.wasm", "tools/sourcefield-wasm/private.md",
+            "tools/unapproved/src/lib.rs", "build/tools/wasm-opt",
         }
 
         with tempfile.TemporaryDirectory() as temporary:
@@ -203,6 +221,73 @@ class PackageTests(unittest.TestCase):
     def test_archive_rejects_community_symlink_issue_template(self):
         """Reject a linked issue template without publishing an archive."""
         self.assert_community_symlink_rejected('.github/ISSUE_TEMPLATE/bug_report.md')
+
+    def test_actual_archive_contains_complete_browser_build_sources(self):
+        """Ship the producer implementation without requiring installed build tools."""
+        # Arrange
+        root = Path(__file__).resolve().parents[1]
+        required = {
+            "Cargo.toml", "Cargo.lock", ".cargo/config.toml", "rust-toolchain.toml",
+            "tools/binaryen.json", "tools/sourcefield-wasm/Cargo.toml",
+            "tools/sourcefield-wasm/src/main.rs", "scripts/build-wasm.sh",
+            "scripts/build_wasm.py", "scripts/sourcefield_tools/binaryen.py",
+        }
+
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "source.zip"
+
+            # Act
+            packager.package(root, output)
+
+            # Assert
+            with zipfile.ZipFile(output) as archive:
+                names = set(archive.namelist())
+                self.assertTrue({f"sourcefield/{name}" for name in required} <= names)
+                self.assertNotIn("sourcefield/tools/wasm-pack-version.txt", names)
+                self.assertFalse(any("/target/" in name or name.endswith(".wasm") for name in names))
+
+    def test_archive_rejects_linked_host_tool_source(self):
+        """Reject a source-file substitution before reading or publishing it."""
+        self.assert_community_symlink_rejected("tools/sourcefield-wasm/src/main.rs")
+
+    def test_archive_rejects_linked_host_tool_source_directory(self):
+        """Do not follow a substituted helper source tree."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            private = root / "private"
+            private.mkdir()
+            (private / "main.rs").write_text("private", encoding="ascii")
+            helper = root / "tools/sourcefield-wasm"
+            helper.mkdir(parents=True)
+            (helper / "src").symlink_to(private, target_is_directory=True)
+            output = root / "source.zip"
+
+            # Act
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                packager.package(root, output)
+
+            # Assert
+            self.assertFalse(output.exists())
+
+    def test_archive_rejects_linked_host_tool_parent(self):
+        """Reject a substituted parent even when no helper manifest exists."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            private = root / "private"
+            (private / "src").mkdir(parents=True)
+            (private / "src/main.rs").write_text("private", encoding="ascii")
+            (root / "tools").mkdir()
+            (root / "tools/sourcefield-wasm").symlink_to(private, target_is_directory=True)
+            output = root / "source.zip"
+
+            # Act
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                packager.package(root, output)
+
+            # Assert
+            self.assertFalse(output.exists())
 
     def test_archive_rejects_template_parent_symlink_before_publishing(self):
         with tempfile.TemporaryDirectory() as temporary:

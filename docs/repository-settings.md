@@ -56,11 +56,14 @@ major updates remain individual reviews. No ignore rule suppresses dependency or
 `npm ci` consumes the lock without changing it. CI retains the full Chromium build
 and an AppArmor policy for its exact executable path rather than disabling the browser sandbox.
 
-wasm-pack's exact pin lives in `tools/wasm-pack-version.txt`, consumed by local and CI builds.
-A weekly read-only registry check reports a stale pin. Prepare a version change with
-`python3 scripts/tool_versions.py --update`; installation, full verification and a reviewed PR are
-separate steps. The check fails visibly on unavailable or invalid registry responses, so a failed
-lookup is never recorded as evidence of freshness.
+The root Cargo workspace also owns the native WASM binding adapter and its exact
+`wasm-bindgen-cli-support` dependency. The browser build provisions the official Binaryen optimizer
+from `tools/binaryen.json`, verifying the archive and every required executable/library by size and
+SHA-256. It verifies cached tool contents again before use; PATH tools are not accepted.
+A weekly read-only release check reports a stale optimizer pin or changed assets. Prepare a reviewed
+manifest change with `python3 scripts/tool_versions.py --update`, then rebuild and verify it before
+opening a PR. Invalid or unavailable release metadata fails visibly; a failed lookup is never
+evidence of freshness. No token with write permissions or automatic PR creation is needed.
 
 A settings readback proves configuration, not a new CI run, a completed Dependabot update, fork
 behavior or release immutability. Verify those through their actual separately authorized runs.

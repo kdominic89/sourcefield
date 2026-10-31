@@ -54,7 +54,7 @@ def package(
                 "browser runtime files differ from their provenance manifest"
             )
 
-        # Package the runtime contract only, never incidental developer or wasm-pack metadata.
+        # Package the runtime contract only, never incidental build-tool metadata or typings.
         entries = [
             (runtime / name, f"runtime/{name}")
             for name in (*RUNTIME_FILES, "runtime-manifest.json")

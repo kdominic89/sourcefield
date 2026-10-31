@@ -38,11 +38,24 @@ Grouping does not disable security updates or bypass review and verification.
 `tools/browser/package.json` and its lock pin the existing Playwright tool; install it with
 `npm ci --prefix tools/browser --include=dev --ignore-scripts --no-audit --no-fund`.
 
-`tools/wasm-pack-version.txt` is the sole wasm-pack version source. The read-only weekly freshness
-workflow checks crates.io and fails if a reviewed update is needed. Run
-`python3 scripts/tool_versions.py --check` to check locally, or `--update` to prepare the pin change.
-Review the diff, install the resulting version, rebuild WASM and run verification before proposing
-its PR. A registry response never installs a tool or merges a change automatically.
+The native binding adapter in `tools/sourcefield-wasm` belongs to the root Cargo workspace and
+uses its lockfile, checks and Dependabot coverage. Keep `wasm-bindgen-cli-support` exactly aligned
+with `wasm-bindgen`; its internal API and generated web bindings must be checked during upgrades.
+
+`tools/binaryen.json` owns the optimizer version, feature flags and per-host archive/tool digests.
+The read-only weekly freshness workflow compares the pin with the official Binaryen release.
+Run `python3 scripts/tool_versions.py --check` locally, or `--update` to prepare an explicit manifest
+update. The update verifies all supported host archives before replacing the manifest. Review the
+diff, rebuild with `bash scripts/build-wasm.sh` and run verification before proposing its PR.
+Neither checking nor building updates committed pins automatically. Replaced assets at the same
+version require investigation rather than silent adoption.
+
+The build verifies cached executables and required libraries before each use and never selects a
+`wasm-opt` or binding generator from PATH. Before execution it copies and authenticates the optimizer
+and required library into a private build directory, so cache changes during compilation are rejected.
+For a disconnected rebuild, fetch Cargo dependencies and
+complete one browser build first, then use `bash scripts/build-wasm.sh --offline`. Source hashes
+cover the producer implementation and policy; rebuild the matching native CLI after changing them.
 
 See [repository settings](docs/repository-settings.md) for the required main checks and the limits
 of CodeQL Default Setup on external fork contributions.

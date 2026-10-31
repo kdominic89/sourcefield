@@ -35,7 +35,7 @@ ROOT_FILES = {
     ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/feature_request.md",
     ".github/ISSUE_TEMPLATE/config.yml",
-    "tools/wasm-pack-version.txt",
+    "tools/binaryen.json",
     "tools/browser/package.json",
     "tools/browser/package-lock.json",
     "crates/sourcefield-io/README.md",
@@ -44,6 +44,7 @@ ROOT_FILES = {
 
 TREE_TYPES = {
     "crates": {".rs", ".toml"},
+    "tools/sourcefield-wasm": {".rs", ".toml"},
     "config": {".toml", ".json"},
     "scripts": {".py", ".sh", ".mjs"},
     "tests": {".py", ".js", ".mjs", ".json", ".html", ".toml"},
@@ -89,7 +90,9 @@ def source_files(root: Path) -> list[Path]:
 
     for name, extensions in TREE_TYPES.items():
         base = root / name
-        if base.is_symlink():
+        if base.is_symlink() or any(
+            parent.is_symlink() for parent in base.parents if parent != root.parent
+        ):
             raise ValueError(f"symlink is not a source tree: {name}")
 
         if not base.exists():

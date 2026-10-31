@@ -8,11 +8,22 @@ version tag, downloadable artifact or hosted deployment exists.
 ### Changed
 
 - Update the pinned Rust toolchain to 1.99.1, serde_json to 1.0.154, sha2 to 0.11.1,
-  Tokio to 1.53.3, TOML to 1.1.8, and the Playwright browser tool to 1.64.1.
+  Tokio to 1.54.1, TOML to 1.1.8, wasm-bindgen to 0.2.130,
+  and the Playwright browser tool to 1.64.1. Refresh compatible locked transitive dependencies.
 - Group compatible Cargo minor and patch version updates while keeping major updates separate.
+- Replace wasm-pack with a locked root-workspace binding adapter and the current official Binaryen
+  optimizer. Verify pinned archives and executable/library contents, authenticate private execution copies,
+  retain optimization and support disconnected rebuilds after provisioning. Keep the read-only
+  scheduled freshness check and explicit reviewed updates for all supported host pins.
 
 ### Fixed
 
+- Bind browser and build-tool compilation to explicit WASM and native targets, preserving custom
+  Cargo output directories. Publish runtime provenance only after fresh bindings and optimization
+  succeed, and include all authored build inputs in native/browser source fingerprints and archives.
+- Update locked certificate verification and root bundles to rustls-webpki 0.103.16 and
+  webpki-root-certs 1.0.11, resolving RUSTSEC-2026-0382 and RUSTSEC-2026-0383 without
+  changing TLS providers, enabled features, or certificate-verification policy.
 - Update the transitive Rustls TLS implementation to 0.23.46, resolving four RustSec advisories
   without adding a direct TLS dependency or changing enabled features.
 - Reject inline SVG event attributes before XML parsing, avoiding parser-time script policy

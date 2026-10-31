@@ -22,11 +22,11 @@ Run the following from the root of a Sourcefield checkout. Rustup selects the re
 Rust toolchain; Cargo uses `Cargo.lock`. The initial tool and dependency downloads require network
 access. Profile generation below is offline and needs no GitHub token.
 
-Install the pinned WASM build tool once:
-
-```sh
-cargo install wasm-pack --version "$(python3 scripts/tool_versions.py --version)" --locked
-```
+The browser build compiles its binding adapter from the same locked Cargo workspace and provisions
+only the pinned official Binaryen optimizer for the current host. Archive and executable/library
+checksums come from `tools/binaryen.json`; cached tool files are checked again before use. No global
+WASM packager installation is required. After the first successful build and Cargo dependency fetch,
+`bash scripts/build-wasm.sh --offline` reuses these inputs without downloading them.
 
 Build the browser runtime and generate a complete synthetic profile in a new temporary directory:
 

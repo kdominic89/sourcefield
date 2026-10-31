@@ -3,7 +3,6 @@
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import tomllib
 import unittest
@@ -72,19 +71,9 @@ class WasmFeatureContractTests(unittest.TestCase):
     def test_release_optimizer_accepts_compiler_features(self):
         root = Path(__file__).resolve().parents[1]
         compiler = tomllib.loads((root / ".cargo/config.toml").read_text())
-        manifest = tomllib.loads(
-            (root / "crates/sourcefield-wasm/Cargo.toml").read_text()
-        )
+        policy = json.loads((root / "tools/binaryen.json").read_text(encoding="ascii"))
 
         flags = compiler["target"]["wasm32-unknown-unknown"]["rustflags"]
-        release = (
-            manifest["package"]
-            .get("metadata", {})
-            .get("wasm-pack", {})
-            .get("profile", {})
-            .get("release", {})
-        )
-
         mapping = {
             "bulk-memory": "bulk-memory",
             "multivalue": "multivalue",
@@ -103,7 +92,7 @@ class WasmFeatureContractTests(unittest.TestCase):
         )
 
         features = re.findall(r'target_feature="([^"]+)"', result.stdout)
-        optimizer = release.get("wasm-opt", ["-O"])
+        optimizer = policy["optimizer_flags"]
 
         self.assertIsInstance(
             optimizer, list, "Release optimization must remain enabled"
@@ -142,17 +131,34 @@ class ToolAuthorityTests(unittest.TestCase):
             self.assertEqual(entry["resolved"], f"https://registry.npmjs.org/{name}/-/{name}-{entry['version']}.tgz")
             self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$" )
 
-    def test_packager_install_workflows_consume_authoritative_pin(self):
+    def test_build_workflows_use_the_repository_owned_locked_toolchain(self):
+        # Arrange
         root = Path(__file__).resolve().parents[1]
         paths = [root / ".github/workflows/validate.yml", root / ".github/workflows/release.yml"]
 
-        installs = [path.read_text(encoding="ascii") for path in paths]
+        # Act
+        sources = [path.read_text(encoding="ascii") for path in paths]
 
-        for source in installs:
-            self.assertIn(
-                'cargo install wasm-pack --version "$(python3 scripts/tool_versions.py --version)" --locked', source
-            )
-            self.assertNotRegex(source, r"cargo install wasm-pack --version [0-9]")
+        # Assert
+        for source in sources:
+            self.assertIn("bash scripts/build-wasm.sh", source)
+            self.assertNotIn("cargo install wasm-pack", source)
+
+    def test_binding_adapter_uses_the_exact_runtime_version_and_root_lock(self):
+        # Arrange
+        root = Path(__file__).resolve().parents[1]
+        manifest = tomllib.loads((root / "Cargo.toml").read_text())
+        lock = tomllib.loads((root / "Cargo.lock").read_text())
+
+        # Act
+        dependencies = manifest["workspace"]["dependencies"]
+        support_versions = [p["version"] for p in lock["package"] if p["name"] == "wasm-bindgen-cli-support"]
+
+        # Assert
+        self.assertEqual(dependencies["wasm-bindgen"], dependencies["wasm-bindgen-cli-support"])
+        self.assertEqual(support_versions, [dependencies["wasm-bindgen"][1:]])
+        self.assertIn("tools/sourcefield-wasm", manifest["workspace"]["members"])
+        self.assertFalse((root / "tools/sourcefield-wasm/Cargo.lock").exists())
 
     def test_freshness_is_scheduled_read_only_and_never_creates_pull_requests(self):
         root = Path(__file__).resolve().parents[1]
@@ -176,54 +182,6 @@ class ToolAuthorityTests(unittest.TestCase):
 
         self.assertIn("package-ecosystem: npm\n    directory: /tools/browser", source)
         self.assertIn("package-ecosystem: rust-toolchain\n    directory: /", source)
-
-    def test_wasm_script_missing_tool_reports_the_consumed_pin(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "scripts").mkdir()
-            (root / "tools").mkdir()
-            (root / "bin").mkdir()
-            actual_root = Path(__file__).resolve().parents[1]
-            for name in ("build-wasm.sh", "tool_versions.py"):
-                (root / "scripts" / name).write_bytes((actual_root / "scripts" / name).read_bytes())
-
-            (root / "tools/wasm-pack-version.txt").write_text("0.16.0\n", encoding="ascii")
-            (root / "bin/dirname").symlink_to("/usr/bin/dirname")
-            (root / "bin/python3").symlink_to(sys.executable)
-            environment = dict(os.environ, PATH=str(root / "bin"))
-
-            result = subprocess.run(["/bin/bash", str(root / "scripts/build-wasm.sh")],
-                                    env=environment, capture_output=True, text=True, check=False)
-
-            self.assertEqual(result.returncode, 1)
-            self.assertEqual(result.stderr, "wasm-pack 0.16.0 is required; install with "
-                             "cargo install wasm-pack --version 0.16.0 --locked.\n")
-            self.assertEqual(result.stdout, "")
-
-    def test_wasm_script_rejects_mismatched_installed_version(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "scripts").mkdir()
-            (root / "tools").mkdir()
-            (root / "bin").mkdir()
-            actual_root = Path(__file__).resolve().parents[1]
-            for name in ("build-wasm.sh", "tool_versions.py"):
-                (root / "scripts" / name).write_bytes((actual_root / "scripts" / name).read_bytes())
-
-            (root / "tools/wasm-pack-version.txt").write_text("0.16.0\n", encoding="ascii")
-            (root / "Cargo.lock").write_text("fixture", encoding="ascii")
-            tool = root / "bin/wasm-pack"
-            tool.write_text("#!/bin/sh\nprintf '%s\\n' 'wasm-pack 0.15.0'\n", encoding="ascii")
-            tool.chmod(0o755)
-            environment = dict(os.environ, PATH=str(tool.parent) + os.pathsep + os.environ["PATH"])
-
-            result = subprocess.run(["/bin/bash", str(root / "scripts/build-wasm.sh")],
-                                    env=environment, capture_output=True, text=True, check=False)
-
-            self.assertEqual(result.returncode, 1)
-            self.assertIn("wasm-pack 0.16.0 and the committed Cargo.lock are required", result.stderr)
-            self.assertEqual(result.stdout, "")
-
 
 if __name__ == "__main__":
     unittest.main()

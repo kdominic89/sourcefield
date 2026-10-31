@@ -134,7 +134,6 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - run: cargo install wasm-pack --version "$(python3 scripts/tool_versions.py --version)" --locked
       - run: bash scripts/build-wasm.sh
         env:
           SOURCEFIELD_SOURCE_COMMIT: ${{ github.sha }}

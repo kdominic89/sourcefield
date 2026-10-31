@@ -27,6 +27,9 @@ class RuntimeManifestTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"fixture: {name}\n", encoding="ascii")
 
+        helper = self.root / "tools/sourcefield-wasm/src/main.rs"
+        helper.parent.mkdir(parents=True)
+        helper.write_text("fixture binding adapter\n", encoding="ascii")
         (self.root / "Cargo.toml").write_text('[workspace.package]\nversion = "0.1.0"\n', encoding="ascii")
         (self.root / "runtime/pkg").mkdir()
         (self.root / "runtime/pkg/sourcefield_wasm.js").write_text("export default function() {}", encoding="ascii")
@@ -47,7 +50,7 @@ class RuntimeManifestTests(unittest.TestCase):
     def test_fingerprint_does_not_depend_on_checkout_path(self) -> None:
         """Relocation preserves source identity across release matrix runners."""
         other = self.root / "other-checkout"
-        for name in MANIFEST.SOURCE_INPUTS:
+        for name in MANIFEST.source_inputs(self.root):
             destination = other / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(self.root / name, destination)
@@ -67,12 +70,12 @@ class RuntimeManifestTests(unittest.TestCase):
 
         self.assertNotEqual(before, after)
 
-    def test_packager_pin_change_changes_source_identity(self) -> None:
-        """A new consumed packager pin cannot retain an older native/browser identity."""
-        pin = self.root / "tools/wasm-pack-version.txt"
+    def test_optimizer_manifest_change_changes_source_identity(self) -> None:
+        """A changed authenticated optimizer selection invalidates the native/browser pair."""
+        pin = self.root / "tools/binaryen.json"
         before = MANIFEST.source_fingerprint(self.root)
 
-        pin.write_text("0.16.0\n", encoding="ascii")
+        pin.write_text("changed optimizer digest\n", encoding="ascii")
         after = MANIFEST.source_fingerprint(self.root)
 
         self.assertNotEqual(before, after)
@@ -86,7 +89,86 @@ class RuntimeManifestTests(unittest.TestCase):
         rust_inputs = tuple(re.findall(r'"([^"]+)"', declaration))
 
         self.assertEqual(rust_inputs, MANIFEST.SOURCE_INPUTS)
-        self.assertIn("tools/wasm-pack-version.txt", rust_inputs)
+        self.assertIn("tools/binaryen.json", rust_inputs)
+
+    def test_new_binding_module_changes_source_identity(self) -> None:
+        """New adapter modules are discovered without hand-editing the fingerprint list."""
+        module = self.root / "tools/sourcefield-wasm/src/extra.rs"
+        before = MANIFEST.source_fingerprint(self.root)
+
+        module.write_text("new binding behavior", encoding="ascii")
+        after = MANIFEST.source_fingerprint(self.root)
+
+        self.assertNotEqual(before, after)
+        self.assertIn("tools/sourcefield-wasm/src/extra.rs", MANIFEST.source_inputs(self.root))
+
+    def test_binding_build_script_changes_source_identity(self) -> None:
+        """Cargo's auto-detected build.rs is a producer input alongside src modules."""
+        script = self.root / "tools/sourcefield-wasm/build.rs"
+        before = MANIFEST.source_fingerprint(self.root)
+
+        script.write_text("fn main() {}", encoding="ascii")
+        after = MANIFEST.source_fingerprint(self.root)
+
+        self.assertNotEqual(before, after)
+        self.assertIn("tools/sourcefield-wasm/build.rs", MANIFEST.source_inputs(self.root))
+
+    def test_removed_binding_module_changes_source_identity(self) -> None:
+        """Removed helper behavior cannot retain the source identity captured before removal."""
+        module = self.root / "tools/sourcefield-wasm/src/extra.rs"
+        module.write_text("binding behavior", encoding="ascii")
+        before = MANIFEST.source_fingerprint(self.root)
+
+        module.unlink()
+        after = MANIFEST.source_fingerprint(self.root)
+
+        self.assertNotEqual(before, after)
+
+    def test_missing_binding_entrypoint_is_rejected(self) -> None:
+        """An empty helper directory is not a complete producer inventory."""
+        (self.root / "tools/sourcefield-wasm/src/main.rs").unlink()
+
+        with self.assertRaisesRegex(ValueError, "main.rs is required"):
+            MANIFEST.source_fingerprint(self.root)
+
+    def test_nested_binding_sources_are_sorted(self) -> None:
+        """Filesystem traversal order cannot alter the Rust/Python inventory contract."""
+        source = self.root / "tools/sourcefield-wasm/src"
+        (source / "nested").mkdir()
+        (source / "z.rs").write_text("z", encoding="ascii")
+        (source / "nested/a.rs").write_text("a", encoding="ascii")
+
+        names = MANIFEST.source_inputs(self.root)[len(MANIFEST.SOURCE_INPUTS):]
+
+        self.assertEqual(names, (
+            "tools/sourcefield-wasm/src/main.rs", "tools/sourcefield-wasm/src/nested/a.rs",
+            "tools/sourcefield-wasm/src/z.rs",
+        ))
+
+    def test_generated_helper_output_does_not_change_source_identity(self) -> None:
+        """Caches within a helper tree are excluded like native generator build outputs."""
+        generated = self.root / "tools/sourcefield-wasm/src/target/generated.rs"
+        generated.parent.mkdir()
+        before = MANIFEST.source_fingerprint(self.root)
+
+        generated.write_text("compiler output", encoding="ascii")
+        after = MANIFEST.source_fingerprint(self.root)
+
+        self.assertEqual(before, after)
+
+    @unittest.skipUnless(hasattr(Path, "symlink_to"), "symlink support required")
+    def test_symlinked_binding_module_is_rejected(self) -> None:
+        """A source link cannot substitute unchecked producer code into a trusted identity."""
+        source = self.root / "tools/sourcefield-wasm/src/main.rs"
+        original = self.root / "original.rs"
+        source.rename(original)
+        try:
+            source.symlink_to(original)
+        except OSError as error:
+            self.skipTest(f"symlink creation unavailable: {error}")
+
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            MANIFEST.source_fingerprint(self.root)
 
     def test_full_release_revision_is_preserved(self) -> None:
         """Release manifests retain the explicit full immutable source commit."""

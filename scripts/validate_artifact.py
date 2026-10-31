@@ -529,7 +529,7 @@ def main() -> int:
     parser.add_argument(
         "--require-wasm",
         action="store_true",
-        help="Fail when the compiled wasm-pack binary is not present.",
+        help="Fail when the compiled WebAssembly runtime module is not present.",
     )
     parser.add_argument(
         "--approved-profile", type=Path, metavar="CONTRACT", help="Enforce an independent editorial JSON contract."

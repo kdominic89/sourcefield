@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "version": 133,
+  "optimizer_flags": [
+    "-O",
+    "--enable-bulk-memory",
+    "--enable-multivalue",
+    "--enable-mutable-globals",
+    "--enable-nontrapping-float-to-int",
+    "--enable-reference-types",
+    "--enable-sign-ext"
+  ],
+  "hosts": {
+    "aarch64-apple-darwin": {
+      "archive": {
+        "name": "binaryen-version_133-arm64-macos.tar.gz",
+        "size": 7810532,
+        "sha256": "ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8"
+      },
+      "files": [
+        {
+          "path": "bin/wasm-opt",
+          "size": 1715048,
+          "sha256": "81041e09f332df94db1c2009a64d8f3b85f0431a2c920ccd014d3ceebb343402"
+        },
+        {
+          "path": "lib/libbinaryen.dylib",
+          "size": 15057024,
+          "sha256": "61055e190d84d5db6d1dec63456e0c24dad324ecfd4d2e23740dca217ed89e5a"
+        }
+      ]
+    },
+    "x86_64-apple-darwin": {
+      "archive": {
+        "name": "binaryen-version_133-x86_64-macos.tar.gz",
+        "size": 9276271,
+        "sha256": "13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199b95"
+      },
+      "files": [
+        {
+          "path": "bin/wasm-opt",
+          "size": 1860808,
+          "sha256": "e26344b1d0d0986ac4a1090f58e478470eb2a52ba0625ae9a0f880511bb31d51"
+        },
+        {
+          "path": "lib/libbinaryen.dylib",
+          "size": 17110272,
+          "sha256": "26388343133e968f58c18807552b83c43944d11cf512e3920798890adc554f38"
+        }
+      ]
+    },
+    "x86_64-unknown-linux-gnu": {
+      "archive": {
+        "name": "binaryen-version_133-x86_64-linux.tar.gz",
+        "size": 111200018,
+        "sha256": "2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"
+      },
+      "files": [
+        {
+          "path": "bin/wasm-opt",
+          "size": 18711520,
+          "sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b"
+        }
+      ]
+    },
+    "aarch64-unknown-linux-gnu": {
+      "archive": {
+        "name": "binaryen-version_133-aarch64-linux.tar.gz",
+        "size": 105577739,
+        "sha256": "89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8"
+      },
+      "files": [
+        {
+          "path": "bin/wasm-opt",
+          "size": 17188224,
+          "sha256": "e5a823487bb83ed522625cc5d9c383e94e0479bfdb1ba387a387505df27daa6a"
+        }
+      ]
+    },
+    "x86_64-pc-windows-msvc": {
+      "archive": {
+        "name": "binaryen-version_133-x86_64-windows.tar.gz",
+        "size": 111045528,
+        "sha256": "17a2cbeac6b5693c5fbafab3838d3c65fd9c1eb38b05f5baec6c657e8c84995b"
+      },
+      "files": [
+        {
+          "path": "bin/wasm-opt.exe",
+          "size": 10343424,
+          "sha256": "4217d75f81cf33c4032d82b5d531120069af1a4b43eb7737977bdb2c99a8f4ba"
+        }
+      ]
+    }
+  }
+}

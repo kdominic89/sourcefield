@@ -2,8 +2,11 @@
 
 `bash scripts/verify.sh` checks shell/Python/JavaScript syntax, Python negative and positive tests,
 Node browser tests, rustfmt, all-target compilation, WASM compilation, native/doc tests, Clippy with
-warnings denied and public/private API documentation. Build WASM first with the pinned packager when
-verifying a release runtime. Tests must use synthetic content inside temporary consumer roots.
+warnings denied and public/private API documentation. Build WASM first with
+`bash scripts/build-wasm.sh` when verifying a release runtime. The binding adapter is part of the
+root workspace, so these same Rust gates cover it. macOS and Windows CI also run the real browser
+build and portable provisioning tests. Tests must use synthetic content inside temporary
+consumer roots.
 
 Python syntax checks include nested packages under `scripts/` and `tests/`. The portable distribution
 suite is selected with `test_distribution*.py` so splitting a test module cannot omit its cases from
@@ -82,6 +85,32 @@ The caller template keeps Pages deployment in a separate job after publication. 
 deployment jobs reuses the existing Pages artifact and does not rerun the stale-HEAD publication
 check or collect new data. Keep the run's artifacts until deployment succeeds.
 
+## Browser build-tool boundary
+
+The build driver selects an explicit native target for `sourcefield-wasm-build` and an explicit
+`wasm32-unknown-unknown` target for the browser crate, with locked release builds for both.
+It derives their paths from Cargo artifact records rather than assuming a target directory.
+The adapter emits web ES modules, TypeScript declarations and the existing default module URL.
+Binaryen consumes the existing `-O` preset and six enabled feature flags from `tools/binaryen.json`.
+Optimization remains required; a failed compilation, binding stage or optimization must not publish
+a new successful runtime manifest from stale files.
+
+Provisioning authenticates the official Binaryen archive before reading its tar members. Only the
+pinned regular executable and required macOS `libbinaryen.dylib` are written to the ignored build
+cache, and their size and digests are rechecked before execution. Tests cover mismatched archives,
+unsafe members, substituted paths and modified caches, plus failed build stages and inherited Cargo
+target defaults. An installed PATH tool cannot replace this verified optimizer.
+
+After fetching Cargo dependencies and completing a browser build, run
+`bash scripts/build-wasm.sh --offline` to verify that cached inputs suffice for a disconnected
+rebuild. Test this separately from initial network provisioning. Source packaging must include the
+adapter, build driver, manifest and shared provisioning module while excluding their compiled outputs.
+Native/Python source fingerprints include these producer inputs and newly added adapter Rust sources.
+
+Content pins establish agreement with the reviewed official artifacts; they do not prove that
+publishers, the compiler or native optimizer contain no unknown vulnerabilities. A Cargo advisory
+scan covers known Rust advisories in the selected lockfile, not Binaryen's C++ implementation.
+
 ## Artifact and preview commands
 
 After generation, run the native `sourcefield validate --root CONSUMER` with the same configuration
@@ -126,7 +155,8 @@ checks. Linux additionally runs the complete WASM/browser gate. Hosted results a
 claiming cross-platform execution; a local macOS run does not establish Windows success.
 
 Dependabot covers Cargo, GitHub Actions, the Rust toolchain and the browser npm manifest/lockfile.
-The separate tool-freshness workflow checks the authoritative wasm-pack pin against crates.io.
+The separate read-only tool-freshness workflow checks the Binaryen manifest against the official
+release metadata. The root lockfile also covers the exact binding adapter dependency.
 Existing `cargo clippy`, compiler/rustdoc gates,
 Python AST parsing and Node syntax/tests remain required. No additional linter or audit executable
 is silently introduced: dependency-advisory scanning is not claimed by these checks. A dedicated

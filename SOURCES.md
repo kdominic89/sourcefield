@@ -22,7 +22,8 @@ has already run.
 
 Workflow action revisions are full commit pins. Update them through a reviewed dependency change and
 verify vendor release provenance; major-version labels in comments are explanatory only. Rust and
-WASM tool versions are pinned in `rust-toolchain.toml` and `tools/wasm-pack-version.txt`.
+WASM compiler/binding versions are pinned in `rust-toolchain.toml` and the root Cargo workspace;
+`tools/binaryen.json` pins the official optimizer version and authenticated host artifacts.
 The current Playwright pin and dependency closure live in `tools/browser/package.json` and
 `tools/browser/package-lock.json`; dated registry observations below are historical evidence.
 
@@ -39,7 +40,7 @@ Rust distribution manifest, and the official tool/Action releases. Record the re
 resolved Action commit; a successful build alone does not establish dependency freshness. Recheck
 these sources before proposing publication. Future releases can make this dated snapshot obsolete.
 
-Verified on 2026-10-17:
+Verified on 2026-10-31:
 
 | Direct crate | Exact pin | Primary release metadata |
 | --- | --- | --- |
@@ -52,9 +53,10 @@ Verified on 2026-10-17:
 | serde_json | 1.0.154 | https://crates.io/api/v1/crates/serde_json |
 | sha2 | 0.11.1 | https://crates.io/api/v1/crates/sha2 |
 | thiserror | 2.0.21 | https://crates.io/api/v1/crates/thiserror |
-| tokio | 1.53.3 | https://crates.io/api/v1/crates/tokio |
+| tokio | 1.54.1 | https://crates.io/api/v1/crates/tokio |
 | toml | 1.1.8+spec-1.1.0 | https://crates.io/api/v1/crates/toml |
-| wasm-bindgen | 0.2.129 | https://crates.io/api/v1/crates/wasm-bindgen |
+| wasm-bindgen | 0.2.130 | https://crates.io/api/v1/crates/wasm-bindgen |
+| wasm-bindgen-cli-support | 0.2.130 | https://crates.io/api/v1/crates/wasm-bindgen-cli-support |
 
 Cargo's TOML requirement uses `=1.1.8` because build metadata is ignored in version requirements;
 the lockfile retains the complete published version. Reqwest 0.13 moves query encoding behind the
@@ -64,7 +66,7 @@ Its transitive libraries are resolved in `Cargo.lock`; no separate direct TLS de
 
 - Reqwest 0.13 changes: https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0
 - Rust 1.99.1 stable distribution: https://static.rust-lang.org/dist/channel-rust-stable.toml
-- wasm-pack 0.15.0: https://crates.io/api/v1/crates/wasm-pack
+- Binaryen version_133: https://github.com/WebAssembly/binaryen/releases/tag/version_133
 - actions/checkout v7.0.1: https://github.com/actions/checkout/releases/tag/v7.0.1
 - actions/upload-artifact v7.0.2: https://github.com/actions/upload-artifact/releases/tag/v7.0.2
 - actions/download-artifact v8.0.2: https://github.com/actions/download-artifact/releases/tag/v8.0.2
@@ -113,6 +115,96 @@ or Rustls Brotli feature is introduced by the fix.
 - Optional Brotli certificate memory bound: https://rustsec.org/advisories/RUSTSEC-2026-0348.html
 - Authenticated key-share prediction: https://rustsec.org/advisories/RUSTSEC-2026-0349.html
 
+## Dependency and certificate refresh (October 31, 2026)
+
+The complete primary-source check covers all direct crate pins, the Cargo and browser lockfile
+closures, the stable Rust distribution, the former wasm-pack tool, and all six Action release commits
+including `docs/consumer-workflow.yml.template`. Rust 1.99.1, Playwright/core 1.64.1 and those Action commits
+remain current. Node and Python are runner-provided tools with minimum requirements, not exact
+repository release pins. Supported runner OS choices are separate from Action-version freshness.
+
+Tokio 1.54.1 requires Rust 1.85 and includes the timer regression fix for the withdrawn 1.54.0
+release. wasm-bindgen 0.2.130 and the retired wasm-pack 0.15.1 were published on October 30.
+Keep the WASM dependency family and binding adapter aligned and regenerate native/browser bundles
+from the final lockfile. Source fingerprints intentionally change even when authored profile content
+is unchanged.
+The workspace remains on unreleased 0.1.3; the latest published release is still 0.1.2.
+
+The wasm-pack 0.15.1 investigation found that its new target precedence honors `CARGO_BUILD_TARGET`
+and Cargo `[build].target`; its `--target web` selects JavaScript output rather than the Rust target.
+The replacement driver explicitly selects the browser and native adapter targets independently.
+
+- Tokio release and MSRV: https://github.com/tokio-rs/tokio/releases/tag/tokio-1.54.0
+- Tokio timer correction: https://github.com/tokio-rs/tokio/releases/tag/tokio-1.54.1
+- wasm-bindgen release: https://github.com/wasm-bindgen/wasm-bindgen/releases/tag/0.2.130
+- wasm-pack release: https://github.com/wasm-bindgen/wasm-pack/releases/tag/v0.15.1
+- wasm-pack registry: https://crates.io/api/v1/crates/wasm-pack/0.15.1
+- wasm-pack target precedence: https://github.com/wasm-bindgen/wasm-pack/blob/v0.15.1/src/command/build.rs
+
+The local audit identifies RUSTSEC-2026-0382 in rustls-webpki 0.103.15 and RUSTSEC-2026-0383 in
+webpki-root-certs 1.0.9. The compatible lock refresh selects corrected stable 0.103.16 and 1.0.11.
+Both concern certificate paths through distrusted emSign intermediates. Keep the existing Reqwest
+features, crypto provider and platform verifier; an affected lock entry alone does not establish
+that every shipped target uses the bundled roots or the same certificate-path implementation.
+The native platform verifier delegates to Apple/Windows trust APIs and uses WebPKI with native
+roots on Linux/other supported Unix targets. The browser simulation crate has no network client.
+
+- WebPKI certificate-path fix: https://rustsec.org/advisories/RUSTSEC-2026-0382.html
+- Root-bundle correction: https://rustsec.org/advisories/RUSTSEC-2026-0383.html
+- WebPKI implementation fix: https://github.com/rustls/webpki/pull/546
+- Root removal: https://github.com/rustls/webpki-roots/pull/133
+- Platform selection: https://github.com/rustls/rustls-platform-verifier/tree/v/0.7.1/src/verification
+- Disclosure and offline certificate-chain fixtures: https://emudhra.we-have-a-problem.com/
+
+Refresh versions admitted by the existing dependency graph; do not force older platform or
+compatibility packages to unrelated major lines. A registry/solver comparison proves availability,
+not successful compilation or security behavior. Audits, focused certificate checks, required
+workspace/browser checks and real consumer acceptance provide separate verification evidence.
+
+## Authenticated browser build tools (October 31, 2026)
+
+The latest wasm-pack 0.15.1 lock still contains known advisory matches. Its build accepts unversioned
+PATH optimizers; executable provisioning accepts cached files by existence and downloads executable
+tarballs without a committed content digest. Its Rustls transport reaches affected certificate verification
+and bundled-root dependencies. ZIP/Zstandard lock matches do not by themselves demonstrate that
+those extraction paths run during Sourcefield's tarball build. The supported build no longer installs
+or invokes wasm-pack.
+
+The repository-owned adapter uses exact `wasm-bindgen-cli-support` 0.2.130 in the root workspace and
+lockfile. Unlike the complete CLI package, this library does not add its HTTP/server tool dependencies.
+Its internal API requires explicit `typescript(true)`, `omit_default_module_path(false)` and
+`web(true)` to preserve the former web output and default initialization behavior.
+
+Official Binaryen version_133 is the current stable release, published September 21. Its archives
+and extracted optimizer contents are pinned for all five supported native hosts. The macOS binaries
+also require the sibling `lib/libbinaryen.dylib`; both files are authenticated. Linux artifacts have
+no dynamic-library imports and the Windows executable imports only its recorded system libraries.
+The official release is not marked immutable, so version equality alone is insufficient: committed
+hashes and same-version asset-change detection remain necessary.
+
+The release contains the upstream parser fix for CVE-2025-14956: the fixing commit is an ancestor
+of the version_133 tag, and the guarded parser loop is present. This is evidence for that correction,
+not proof of absence of other native-code vulnerabilities. The independent Rust wasm-opt wrapper
+embeds Binaryen 116 and its author reported inability to maintain it; adopting that stale snapshot
+would not provide current optimizer maintenance.
+
+The existing `-O` preset and six feature switches remain unchanged. Binaryen documents `-O` as
+optimization level 2 with shrink level 1. The build bounds optimizer threads and streams verified
+archives rather than retaining them in memory. No universal speed or memory improvement is claimed.
+Cargo advisory checks cover the selected Rust graph, not the C++ optimizer or compiler supply chain.
+
+- Binding adapter API: https://github.com/wasm-bindgen/wasm-bindgen/blob/0.2.130/crates/cli-support/src/lib.rs
+- Official CLI defaults: https://github.com/wasm-bindgen/wasm-bindgen/blob/0.2.130/crates/cli/src/wasm_bindgen.rs
+- Support crate metadata: https://crates.io/api/v1/crates/wasm-bindgen-cli-support/0.2.130
+- Binaryen release and digests: https://api.github.com/repos/WebAssembly/binaryen/releases/tags/version_133
+- Binaryen optimization options: https://github.com/WebAssembly/binaryen/blob/version_133/src/tools/optimization-options.h
+- Binaryen thread controls: https://github.com/WebAssembly/binaryen/blob/version_133/src/support/threads.cpp
+- Parser correction: https://github.com/WebAssembly/binaryen/commit/4f52bff8c4075b5630422f902dd92a0af2c9f398
+- CVE primary record: https://github.com/CVEProject/cvelistV5/blob/main/cves/2025/14xxx/CVE-2025-14956.json
+- Wrapper maintenance statement: https://github.com/WebAssembly/binaryen/issues/7552
+- Cargo locked/offline builds and explicit targets: https://doc.rust-lang.org/cargo/commands/cargo-build.html
+- GitHub release asset digests: https://docs.github.com/en/rest/releases/assets#get-a-release-asset
+
 ## Ubuntu browser sandbox
 
 - Actual failing runner image permission setup (20260927.320.1): https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/scripts/build/configure-system.sh
@@ -141,8 +233,9 @@ policy and explicit browser launch, retaining the pinned Playwright/Chromium pai
 
 The official npm metadata for both packages in the current browser lockfile was checked against
 their exact resolved URLs and integrity values. Both matched; no package version changed.
-The official full wasm-pack inventory contained the existing non-yanked pin and matched the
-reported latest stable release. The tool continues to reject automatic downgrades.
+At that historical check, the official full wasm-pack inventory contained the existing non-yanked
+pin and matched the reported latest stable release. The former checker rejected automatic downgrades;
+the current Binaryen release checker retains that protection.
 
 ## Icon catalog contracts checked on 2026-10-06
 

@@ -16,8 +16,6 @@ jobs:
           persist-credentials: false
       - name: Install the repository-pinned toolchain
         run: rustup show active-toolchain
-      - name: Install the pinned WASM packager
-        run: cargo install wasm-pack --version "$(python3 scripts/tool_versions.py --version)" --locked
       - name: Build the complete WASM runtime
         run: bash scripts/build-wasm.sh
       - name: Verify native, WASM, Python, browser modules and API documentation
@@ -85,3 +83,7 @@ jobs:
           python -B -m unittest discover -s tests -p 'test_shared_artifacts.py'
           python -B -m unittest discover -s tests -p 'test_transport_contracts.py'
           python -B -m unittest discover -s tests -p 'test_python_structure.py'
+          python -B -m unittest discover -s tests -p 'test_build_wasm.py'
+          python -B -m unittest discover -s tests -p 'test_binaryen.py'
+      - name: Verify the pinned WASM build tools on the actual platform
+        run: python scripts/build_wasm.py

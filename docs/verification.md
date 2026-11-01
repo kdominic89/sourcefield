@@ -97,9 +97,11 @@ a new successful runtime manifest from stale files.
 
 Provisioning authenticates the official Binaryen archive before reading its tar members. Only the
 pinned regular executable and required macOS `libbinaryen.dylib` are written to the ignored build
-cache, and their size and digests are rechecked before execution. Tests cover mismatched archives,
-unsafe members, substituted paths and modified caches, plus failed build stages and inherited Cargo
-target defaults. An installed PATH tool cannot replace this verified optimizer.
+cache, and their size and digests are rechecked before use. Immediately before execution, the driver
+copies and authenticates those files into a private per-build tree. Tests cover mismatched archives,
+unsafe members, substituted paths, modified caches and replacement during compilation, including
+required libraries. They also cover failed build stages and inherited Cargo target defaults. An
+installed PATH tool cannot replace this verified optimizer.
 
 After fetching Cargo dependencies and completing a browser build, run
 `bash scripts/build-wasm.sh --offline` to verify that cached inputs suffice for a disconnected
@@ -113,11 +115,31 @@ scan covers known Rust advisories in the selected lockfile, not Binaryen's C++ i
 
 ## Artifact and preview commands
 
-After generation, run the native `sourcefield validate --root CONSUMER` with the same configuration
-path used for generation, followed by `python3 scripts/validate_artifact.py --root CONSUMER`.
-For nondefault configuration/README destinations pass `--config` and `--readme` explicitly.
-The supplemental standard-library validator uses `assets/resolved-config.json` for merged imported
-package authority. It checks SVG safety in presentation contexts, accessible text, paired state,
+After generation, run native validation followed by the supplemental Python artifact validator.
+With default paths, use `sourcefield validate --root CONSUMER` and then
+`python3 scripts/validate_artifact.py --root CONSUMER --require-wasm`.
+For custom paths, select each command's independent inputs explicitly:
+
+```sh
+sourcefield validate --root CONSUMER \
+  --config config/custom-profile.toml \
+  --assets output/assets \
+  --state output/assets/profile-state.json
+
+python3 scripts/validate_artifact.py --root CONSUMER \
+  --config config/custom-profile.toml \
+  --assets output/assets \
+  --docs output/site \
+  --readme profile/README.md \
+  --require-wasm
+```
+
+`--assets` does not change the native validator's default `--state`; pass both for a relocated state.
+Only the Python command accepts `--docs` and `--readme`. Use the same configuration and output paths
+chosen during generation. Keep README image links relative to that README's location.
+
+The supplemental standard-library validator uses `resolved-config.json` from the selected assets
+directory for merged imported package authority. It checks SVG safety in presentation contexts, accessible text, paired state,
 README links and local resources; it does not authenticate remote imports or replace native validation.
 The browser fixture gate runs both validators and geometry checks on actual generated artifacts.
 

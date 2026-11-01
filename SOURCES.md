@@ -81,10 +81,10 @@ Its transitive libraries are resolved in `Cargo.lock`; no separate direct TLS de
 - Rustls platform certificate-store behavior: https://github.com/rustls/rustls-platform-verifier/blob/main/README.md
 - AWS-LC native build requirements: https://aws.github.io/aws-lc-rs/requirements/index.html
 
-The 2026-10-17 check includes the browser tool and all six existing Action pins, including the
-consumer-template Pages Actions. Playwright 1.64.1 is the current stable patch, newer than the
-1.64.0 Dependabot proposal. Its npm lock binds the exact playwright/playwright-core tarball
-integrities; Node >=20 remains supported. All Action release commits above remain current.
+The 2026-10-17 check included the browser tool and all six existing Action pins, including the
+consumer-template Pages Actions. At that check, Playwright 1.64.1 was the current stable patch,
+newer than the 1.64.0 Dependabot proposal. Its npm lock binds the exact playwright/playwright-core
+tarball integrities; Node >=20 remains supported. All Action release commits above matched at that check.
 sha2 0.11.1 requires Rust 1.88, below the workspace's existing 1.99 minimum. The selected toolchain
 is the stable 1.99.1 patch; no minimum-version or feature expansion is needed.
 
@@ -128,7 +128,7 @@ release. wasm-bindgen 0.2.130 and the retired wasm-pack 0.15.1 were published on
 Keep the WASM dependency family and binding adapter aligned and regenerate native/browser bundles
 from the final lockfile. Source fingerprints intentionally change even when authored profile content
 is unchanged.
-The workspace remains on unreleased 0.1.3; the latest published release is still 0.1.2.
+At the October 31 check, the workspace was preparing 0.1.3 and the latest published release was 0.1.2.
 
 The wasm-pack 0.15.1 investigation found that its new target precedence honors `CARGO_BUILD_TARGET`
 and Cargo `[build].target`; its `--target web` selects JavaScript output rather than the Rust target.
@@ -163,8 +163,9 @@ workspace/browser checks and real consumer acceptance provide separate verificat
 
 ## Authenticated browser build tools (October 31, 2026)
 
-The latest wasm-pack 0.15.1 lock still contains known advisory matches. Its build accepts unversioned
-PATH optimizers; executable provisioning accepts cached files by existence and downloads executable
+At the October 31 check, the latest wasm-pack release was 0.15.1 and its lock contained known
+advisory matches. Its build accepts unversioned PATH optimizers; executable provisioning accepts
+cached files by existence and downloads executable
 tarballs without a committed content digest. Its Rustls transport reaches affected certificate verification
 and bundled-root dependencies. ZIP/Zstandard lock matches do not by themselves demonstrate that
 those extraction paths run during Sourcefield's tarball build. The supported build no longer installs
@@ -175,12 +176,12 @@ lockfile. Unlike the complete CLI package, this library does not add its HTTP/se
 Its internal API requires explicit `typescript(true)`, `omit_default_module_path(false)` and
 `web(true)` to preserve the former web output and default initialization behavior.
 
-Official Binaryen version_133 is the current stable release, published September 21. Its archives
-and extracted optimizer contents are pinned for all five supported native hosts. The macOS binaries
+At that check, official Binaryen version_133 was the current stable release, published September 21.
+Its archives and extracted optimizer contents are pinned for all five supported native hosts. The macOS binaries
 also require the sibling `lib/libbinaryen.dylib`; both files are authenticated. Linux artifacts have
 no dynamic-library imports and the Windows executable imports only its recorded system libraries.
-The official release is not marked immutable, so version equality alone is insufficient: committed
-hashes and same-version asset-change detection remain necessary.
+The official release was not marked immutable at that check. Version equality alone is insufficient:
+committed hashes and same-version asset-change detection remain necessary.
 
 The release contains the upstream parser fix for CVE-2025-14956: the fixing commit is an ancestor
 of the version_133 tag, and the guarded parser loop is present. This is evidence for that correction,
@@ -310,3 +311,22 @@ or evidence of hosted workflow execution.
   download-artifact v8.0.2, upload-pages-artifact v5.0.0 and deploy-pages v5.0.1 pins.
 - The official Rust stable manifest and both Playwright npm package records were checked against
   the committed toolchain and lockfile. These dated checks do not claim future freshness.
+
+## Release documentation checked on 2026-11-01 (Europe/Berlin)
+
+The official published `v0.1.2` release was stable and immutable at this check. Its target and resolved
+tag commit both identified `cd2e2b6779c82a3f64346a47d40da4967fcc0dc5`. This is a dated verification
+identity, not a moving download default or a claim that the workspace's 0.1.3 build is published.
+
+Release-lock acquisition verifies the selected release, the downloaded lock asset and its attestation
+against an independently reviewed source commit. `check_pin.py` separately validates the lock schema
+and literal reusable-workflow mirror. It does not authenticate a downloaded lock. The publisher uses
+GitHub's generated release notes; it does not import or rewrite the repository changelog.
+
+- Published release metadata: https://api.github.com/repos/kdominic89/sourcefield/releases/tags/v0.1.2
+- Resolved release source: https://api.github.com/repos/kdominic89/sourcefield/commits/v0.1.2
+- Release verification: https://cli.github.com/manual/gh_release_verify
+- Exact asset download: https://cli.github.com/manual/gh_release_download
+- Release-asset verification: https://cli.github.com/manual/gh_release_verify-asset
+- Attestation source/signer constraints: https://cli.github.com/manual/gh_attestation_verify
+- Generated release notes: https://cli.github.com/manual/gh_release_create

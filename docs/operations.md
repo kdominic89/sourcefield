@@ -45,8 +45,9 @@ outside Sourcefield ownership remain outside the retention inventory and are nev
 History admission validates maintainer roles as well as current state. A supplied empty or whitespace-only
 role in an archive produced by an older generator now rejects generation. Inspect historical data before
 upgrading; omitted optional maintainer attribution remains valid. Supplied attribution requires a
-nonblank role. Sourcefield does not silently rewrite or discard invalid archives. The two actual
-consumers' 48 retained archives passed the stricter admission checks.
+nonblank role. Sourcefield does not silently rewrite or discard invalid archives. Validate all
+retained archives with the intended generator before upgrading and preserve the original history
+for recovery.
 
 For successful live refreshes with identical observation content, Sourcefield retains the previous
 capture and its original `fetched_at`. That timestamp describes the retained observation, not today's
@@ -137,8 +138,9 @@ receive the same definition. A selected-project caption counts approved visible 
 an owner caption uses available owner observations and the existing private publication authorization.
 Missing observations remain unknown, including every organization's private owner total.
 
-The existing `v0.1.1` release cannot parse the new fields. First release a generator containing this
-feature, then upgrade each consumer to that matched CLI/runtime and workflow pin and regenerate.
+Repository captions are supported starting with `v0.1.2`; `v0.1.1` cannot parse the fields. When
+upgrading an older consumer, select a supporting release, adopt its matched CLI/runtime and workflow
+pin, and regenerate.
 Upgrade every importer before publishing new fields to a shared canonical manifest; an old consumer
 tracking `main` rejects them. For the personal and organization pair, first upgrade the personal
 consumer while the canonical manifest remains compatible. Then upgrade the organization consumer and

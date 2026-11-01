@@ -24,8 +24,9 @@ access. Profile generation below is offline and needs no GitHub token.
 
 The browser build compiles its binding adapter from the same locked Cargo workspace and provisions
 only the pinned official Binaryen optimizer for the current host. Archive and executable/library
-checksums come from `tools/binaryen.json`; cached tool files are checked again before use. No global
-WASM packager installation is required. After the first successful build and Cargo dependency fetch,
+checksums come from `tools/binaryen.json`. Before execution, the optimizer and its required library
+are copied into a private build directory while their contents are authenticated. No global WASM
+packager installation is required. After the first successful build and Cargo dependency fetch,
 `bash scripts/build-wasm.sh --offline` reuses these inputs without downloading them.
 
 Build the browser runtime and generate a complete synthetic profile in a new temporary directory:
@@ -108,6 +109,6 @@ Use [bug reports and feature requests](https://github.com/kdominic89/sourcefield
 feedback. Follow the [contribution guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
 Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/kdominic89/sourcefield/security/advisories/new).
 See [SECURITY.md](SECURITY.md) for scope and reporting guidance. Do not post vulnerability details in public issues.
-See [CHANGELOG.md](CHANGELOG.md) for unreleased changes.
+See [CHANGELOG.md](CHANGELOG.md) for versioned changes and pending work.
 
 Sourcefield is licensed under [MIT](LICENSE).

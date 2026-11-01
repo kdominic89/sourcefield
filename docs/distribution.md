@@ -16,6 +16,34 @@ Native targets are `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknow
 `aarch64-unknown-linux-gnu` and `x86_64-pc-windows-msvc`. Linux builds target the Ubuntu 24.04 GNU
 runtime baseline; other libc/older glibc platforms require an independently tested source build.
 
+## Obtain an authenticated release lock
+
+Select an exact published `release_tag` and its independently reviewed full `source_commit` first.
+Use the chosen release's source revision, not a commit read only from an unverified lock. The
+following commands require those two shell variables and use a new download directory:
+
+```sh
+: "${release_tag:?Set the selected published version tag, including v}"
+: "${source_commit:?Set its reviewed full source commit SHA}"
+lock_dir="$(mktemp -d)"
+
+gh release verify "$release_tag" --repo kdominic89/sourcefield
+gh release download "$release_tag" --repo kdominic89/sourcefield \
+  --pattern sourcefield.lock.json --dir "$lock_dir"
+gh release verify-asset "$release_tag" "$lock_dir/sourcefield.lock.json" \
+  --repo kdominic89/sourcefield
+gh attestation verify "$lock_dir/sourcefield.lock.json" \
+  --repo kdominic89/sourcefield \
+  --signer-workflow kdominic89/sourcefield/.github/workflows/release.yml \
+  --source-digest "$source_commit" --signer-digest "$source_commit"
+```
+
+Stop if any verification fails. Check that the authenticated lock's `release` and `source_commit`
+match the selected pair before adopting its unchanged bytes as the consumer's `sourcefield.lock.json`.
+Its `source_commit` must also be the literal reusable-workflow reference. Authentication and
+`check_pin.py` have different roles: the latter checks schema and pin agreement, not release provenance.
+Use only a verified published release as a consumer pin; an unpublished workspace version is not sufficient.
+
 ## Verified installation
 
 Use bootstrap tooling from the reviewed generator source revision, Python 3.11+ and GitHub CLI with
@@ -23,7 +51,7 @@ release/attestation verification support. Authenticate `gh` with appropriate rea
 
 ```sh
 python3 scripts/bootstrap_release.py \
-  --lock /consumer/sourcefield.lock.json \
+  --lock "$lock_dir/sourcefield.lock.json" \
   --destination /new/installation/directory
 ```
 
@@ -60,10 +88,11 @@ owned private repositories may be collected, never their names. Native CLI confi
 `SOURCEFIELD_PRIVATE_COUNTS` environment opt-ins remain independent and are not overwritten by
 this additional caller selection. Their existing credential and strict-mode policy still applies.
 
-For a reviewed upgrade, obtain the new authenticated lock and prepare the paired change:
+For a reviewed upgrade, obtain the new lock with the authentication steps above, then prepare the
+paired change:
 
 ```sh
-python3 scripts/check_pin.py --lock /download/sourcefield.lock.json \
+python3 scripts/check_pin.py --lock "$lock_dir/sourcefield.lock.json" \
   --workflow /consumer/.github/workflows/update-profile.yml --prepare /new/review-directory
 ```
 
@@ -125,8 +154,14 @@ recorded input and generator identity. An observation cache cannot replace missi
 ## Manual release
 
 The first immutable release is [`v0.1.0`](https://github.com/kdominic89/sourcefield/releases/tag/v0.1.0),
-published on October 7, 2026. The workspace version describes the next release being prepared;
-unreleased source does not provide an authenticated consumer release pin.
+published on October 7, 2026. The workspace version identifies the source build and must match
+the intended release. Only a verified published release supplies an authenticated consumer pin.
+
+Before dispatch, review the matching version section in CHANGELOG.md, then commit and push the
+reviewed source to `main` and confirm its hosted checks. A changelog version heading groups intended
+changes; GitHub Releases records actual availability and publication dates. The workflow generates
+GitHub release notes separately and neither edits nor imports CHANGELOG.md.
+
 In GitHub, open **Actions -> Release Sourcefield -> Run workflow**, select `main`, enter the exact
 workspace version without `v`, and start the workflow once. That owner dispatch authorizes publication;
 there is no second environment review or manual tag push. The workflow also checks the owner on a

@@ -26,7 +26,9 @@ approval. Never rewrite existing consumer data as a side effect of a source test
 
 Use the bug or feature template and a minimal synthetic example before a broad design change.
 Include executed checks and any compatibility impact in a pull request. Update [CHANGELOG.md](CHANGELOG.md)
-under Unreleased for user-visible changes; do not invent a release date or version tag.
+for user-visible changes. Use the intended version section while preparing that release; otherwise
+use Unreleased. A section groups changes, while GitHub Releases establishes publication and its date.
+Do not invent a release date or imply that a version heading proves an available release.
 Community participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 Use [SECURITY.md](SECURITY.md) for vulnerabilities rather than public issues or pull requests.
 
@@ -53,9 +55,9 @@ version require investigation rather than silent adoption.
 The build verifies cached executables and required libraries before each use and never selects a
 `wasm-opt` or binding generator from PATH. Before execution it copies and authenticates the optimizer
 and required library into a private build directory, so cache changes during compilation are rejected.
-For a disconnected rebuild, fetch Cargo dependencies and
-complete one browser build first, then use `bash scripts/build-wasm.sh --offline`. Source hashes
-cover the producer implementation and policy; rebuild the matching native CLI after changing them.
+For a disconnected rebuild, fetch Cargo dependencies and complete one browser build first.
+Then use `bash scripts/build-wasm.sh --offline`. Source hashes cover the producer implementation
+and policy; rebuild the matching native CLI after changing them.
 
 See [repository settings](docs/repository-settings.md) for the required main checks and the limits
 of CodeQL Default Setup on external fork contributions.

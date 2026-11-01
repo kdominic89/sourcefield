@@ -121,9 +121,9 @@ The stored `Node.summary` remains unchanged and supplies the legacy accessible-l
 caption is present. Visible legacy captions still count shown projects. Project descriptions, inventory,
 geometry, discovery behavior and private authorization retain their existing roles.
 
-Released `v0.1.1` rejects these new authored fields. Adopting this feature first requires a release
-containing it and one consumer upgrade to its matching CLI/runtime and pinned workflow. Upgrade every
-importer before publishing the new field in a shared canonical manifest: an old consumer tracking
+Repository captions were introduced in `v0.1.2`; `v0.1.1` rejects these authored fields. Consumers
+on older generators must upgrade to a supporting release's matched CLI/runtime and pinned workflow.
+Upgrade every importer before publishing the new field in a shared canonical manifest: an old consumer tracking
 `main` would otherwise reject the updated content. Supporting generators still accept manifests that
 omit the field. After that initial adoption, label changes or switching the supported source are
 configuration-only edits: rerun normal generation without a new generator release or pin change.

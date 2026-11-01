@@ -23,9 +23,9 @@ trailing whitespace. UTF-8 decoding rejects invalid bytes without replacement.
 Focused verification:
 
 ```sh
-cargo test -p sourcefield-io -p sourcefield-workspace
-cargo test -p sourcefield-cli runtime::tests
-cargo clippy -p sourcefield-io -p sourcefield-workspace -p sourcefield-cli --all-targets -- -D warnings
+cargo test --locked -p sourcefield-io -p sourcefield-workspace
+cargo test --locked -p sourcefield-cli runtime::tests
+cargo clippy --locked -p sourcefield-io -p sourcefield-workspace -p sourcefield-cli --all-targets -- -D warnings
 ```
 
 The portable file-read tests check exact content, empty input, size admission,
@@ -42,7 +42,7 @@ a failure requires inspecting the allocation change. These tests run in the norm
 native test suite. To print the measurements explicitly:
 
 ```sh
-cargo test -p sourcefield-io allocation_budget -- --nocapture
+cargo test --locked -p sourcefield-io allocation_budget -- --nocapture
 ```
 
 The measurement covers only the returned byte vector's retained capacity. It does

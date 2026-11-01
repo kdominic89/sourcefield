@@ -59,7 +59,8 @@ and an AppArmor policy for its exact executable path rather than disabling the b
 The root Cargo workspace also owns the native WASM binding adapter and its exact
 `wasm-bindgen-cli-support` dependency. The browser build provisions the official Binaryen optimizer
 from `tools/binaryen.json`, verifying the archive and every required executable/library by size and
-SHA-256. It verifies cached tool contents again before use; PATH tools are not accepted.
+SHA-256. Immediately before execution it copies and authenticates the optimizer and required
+library into a private build tree; PATH tools are not accepted.
 A weekly read-only release check reports a stale optimizer pin or changed assets. Prepare a reviewed
 manifest change with `python3 scripts/tool_versions.py --update`, then rebuild and verify it before
 opening a PR. Invalid or unavailable release metadata fails visibly; a failed lookup is never

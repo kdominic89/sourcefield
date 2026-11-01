@@ -17,9 +17,11 @@ publication. The owner's manual dispatch is the publication approval; no later r
 After a timeout, inspect the release: retry an incomplete draft, or verify an already-published
 immutable release before deciding on further action. Never delete or overwrite a published release.
 
-The repository version and intended version tag must agree. Review both real consumers with captured
-inputs and a synthetic second organization before starting the release workflow. The release workflow runs
-verification, builds and smoke-tests all five native targets, packages the complete WASM/browser
+The repository version, intended changelog section and version tag must agree. Review the intended
+changes, commit and push the reviewed source to `main`, and confirm its hosted checks before dispatch.
+GitHub generates release notes separately; the workflow neither edits nor imports CHANGELOG.md.
+Review both real consumers with captured inputs and a synthetic second organization before starting
+the release workflow. It runs verification, builds and smoke-tests all five native targets, packages the complete WASM/browser
 runtime, attests every archive and assembles a complete draft before publication. A missing target
 blocks the release. Failed uploads leave a draft. Existing published releases are never overwritten.
 
@@ -44,10 +46,11 @@ Generator updates are deliberate; ordinary content refreshes follow each consume
 ## Recovery and retention
 
 Preserve captured input state and history in consumer Git. Keep a recovery copy containing actual
-uncommitted inputs and matching browser runtime before the one-time migration. Actions artifacts
-are retained for 14 days for operational convenience, not as the only recovery source. A previous
-consumer revision plus its captured inputs and verified immutable generator release reconstructs
-that generation. Preserve an offline copy of releases needed for recovery if external availability
+uncommitted inputs and matching browser runtime before the one-time migration. Intermediate
+native/browser release artifacts are retained for 7 days; consumer candidates and browser verification
+evidence are retained for 14 days. These Actions artifacts are operational copies, not the only recovery
+source or the published immutable release assets. A previous consumer revision plus its captured inputs
+and verified immutable generator release reconstructs that generation. Preserve an offline copy of releases needed for recovery if external availability
 must not be assumed.
 
 On interrupted local promotion, use `sourcefield recover --root PATH` according to the ownership
@@ -86,6 +89,9 @@ Omit `--write` to check freshness without modifying the files. Review all three 
 both themes and reduced motion. Do not copy runtime WASM, captures or transaction files into the
 documentation assets.
 
-Before an actual release, review Unreleased in CHANGELOG.md and move the shipped entries to the
-matching version and publication date. Keep unreleased work separate. Do not rewrite the changelog
-to imply that local verification is evidence of hosted publication.
+Before a release, review CHANGELOG.md and group the intended entries under the version from
+Cargo.toml. Keep unassigned future work under Unreleased and omit empty sections. A version heading
+records the planned contents, not a claim of publication. GitHub Releases is the authority for the
+actual publication date; add a date only when it is known, never as a prediction. Existing dated
+release entries remain historical records. Local verification and a prepared section do not prove
+that hosted publication succeeded.

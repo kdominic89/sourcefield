@@ -27,6 +27,9 @@ push or deploy. Consumer automation publishes an already validated candidate.
   the numeric WASM interface. Native schema types are not compiled into the simulation.
 - `sourcefield-workspace`: generated ownership, candidate promotion and interruption recovery.
 - `sourcefield-workspace::migration`: isolated one-time conversion of legacy consumer data.
+- `sourcefield-wasm-build`: native build adapter in `tools/sourcefield-wasm`, sharing the root
+  workspace lock. It uses the exact matching `wasm-bindgen-cli-support` library to emit web bindings;
+  it is build tooling, outside the consumer runtime and the browser simulation dependency graph.
 
 Browser source is authored in `runtime/`. Generated `runtime/pkg/` is a build artifact. Technical
 manuals live in `docs/`; they are not a deployable profile site. Runtime files reach consumers through
@@ -38,6 +41,8 @@ The existing files in `scripts/` remain executable entrypoints for local and wor
 Reusable tooling lives in the standard-library-only `scripts/sourcefield_tools` package:
 
 - `artifacts` owns bounded file hashing and reproducible ZIP-entry metadata.
+- `binaryen` owns typed optimizer pins, bounded authenticated downloads/extraction, cache validation
+  and private execution snapshots. The build driver and explicit freshness command share this owner.
 - `release` owns the supported target inventory, typed release identities and shared asset/provenance checks.
 - `consumer` owns portable consumer-relative path admission.
 - `presentation` owns geometry, ornament and package checks used by tests and the browser fixture gate.
@@ -50,6 +55,26 @@ imports, so shared code has the same module identity as its command callers. Tes
 bootstrap, release assembly, publication, consumers and policy; transport doubles reject unknown commands.
 Source archives include the internal package and test support recursively, and verification parses nested
 Python source. Moving a module does not change CLI paths, wire schemas or artifact trust requirements.
+
+## Browser build and producer identity
+
+`scripts/build-wasm.sh` delegates to `scripts/build_wasm.py`. The driver builds the browser crate
+and native binding adapter in locked release mode with explicit, independent targets. Cargo artifact
+records supply paths even when a caller selects another target directory. The adapter emits the web
+module and declarations; Binaryen optimizes the WASM with the pinned feature/optimization policy.
+
+`tools/binaryen.json` binds each supported host archive and its required executable/library files.
+Provisioning checks the archive before parsing it and authenticates reusable cache content. Immediately
+before execution, the driver copies and authenticates the optimizer and required macOS library into
+a private build tree. A changed cache cannot supply unchecked execution bytes during compilation.
+Failed stages or changed producer inputs prevent a fresh success manifest.
+
+The native build script and Python runtime-manifest writer share the producer input inventory and
+path/byte hashing contract. It includes compiler/build policy, the root lock, adapter manifest and
+authored Rust modules, provisioning code and the optimizer pin. New helper Rust sources are discovered,
+including a future build.rs. The separate generator fingerprint also covers the full generator Rust
+source. Rebuild the matched native/browser pair after a producer change; documentation prose is
+outside these source inventories.
 
 ## Identity and trust boundaries
 

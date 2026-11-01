@@ -1,9 +1,10 @@
 # Changelog
 
-User-facing changes are recorded here before release. An Unreleased entry does not mean that a
-version tag, downloadable artifact or hosted deployment exists.
+Changes are grouped by their intended version. A version heading does not establish that its tag,
+assets or deployment exist. [GitHub Releases](https://github.com/kdominic89/sourcefield/releases)
+records actual publication and its date. Unassigned future changes belong under Unreleased.
 
-## Unreleased
+## 0.1.3
 
 ### Changed
 
@@ -11,6 +12,8 @@ version tag, downloadable artifact or hosted deployment exists.
   Tokio to 1.54.1, TOML to 1.1.8, wasm-bindgen to 0.2.130,
   and the Playwright browser tool to 1.64.1. Refresh compatible locked transitive dependencies.
 - Group compatible Cargo minor and patch version updates while keeping major updates separate.
+- Align release preparation, authenticated lock acquisition, source-build architecture and consumer
+  upgrade instructions with the current implementation.
 - Replace wasm-pack with a locked root-workspace binding adapter and the current official Binaryen
   optimizer. Verify pinned archives and executable/library contents, authenticate private execution copies,
   retain optimization and support disconnected rebuilds after provisioning. Keep the read-only

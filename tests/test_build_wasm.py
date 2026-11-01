@@ -5,7 +5,7 @@ import io
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import tempfile
 import unittest
@@ -100,7 +100,14 @@ class BuildPublicationTests(unittest.TestCase):
         """Prepare old output and deterministic producer doubles, never external tools."""
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
+        # Mock results and command checks must share the host's native path spelling.
+        tools = self.root / "build tools"
+        self.input_wasm = tools / "input.wasm"
+        self.bindings = tools / "adapter"
+        self.cached_optimizer = tools / "cache/wasm-opt"
+        self.private_optimizer = tools / "private/wasm-opt"
+
         (self.root / "Cargo.lock").write_text("locked", encoding="ascii")
         (self.root / "runtime/pkg").mkdir(parents=True)
         self.manifest = self.root / "runtime/runtime-manifest.json"
@@ -111,26 +118,28 @@ class BuildPublicationTests(unittest.TestCase):
     def producer(self, command, **kwargs):
         """Write only the same named stage outputs as real binding generation and optimization."""
         self.calls.append(command)
-        if command[0] == "/adapter":
+        if command[0] == str(self.bindings):
             output = Path(command[2])
             for name in ("sourcefield_wasm.js", "sourcefield_wasm.d.ts", "sourcefield_wasm_bg.wasm.d.ts"):
                 (output / name).write_text("export {};", encoding="ascii")
 
             (output / "sourcefield_wasm_bg.wasm").write_bytes(build_wasm.WASM_HEADER)
-        else:
+        elif command[0] == str(self.private_optimizer):
             Path(command[command.index("-o") + 1]).write_bytes(build_wasm.WASM_HEADER + b"optimized")
+        else:
+            raise AssertionError(f"unexpected build tool: {command[0]}")
 
     @contextmanager
     def dependencies(self, producer=None, snapshot=None):
         """Patch external boundaries while retaining real staging, validation and publication."""
         with patch.object(build_wasm, "read_manifest", return_value={"optimizer_flags": ["-O"]}), \
                 patch.object(build_wasm, "host_target", return_value="aarch64-apple-darwin"), \
-                patch.object(build_wasm, "ensure_optimizer", return_value=Path("/verified/wasm-opt")) as optimizer, \
-                patch.object(build_wasm, "cargo_artifact", side_effect=[Path("/input.wasm"), Path("/adapter")]), \
+                patch.object(build_wasm, "ensure_optimizer", return_value=self.cached_optimizer) as optimizer, \
+                patch.object(build_wasm, "cargo_artifact", side_effect=[self.input_wasm, self.bindings]), \
                 patch.object(build_wasm.subprocess, "run", side_effect=producer or self.producer), \
                 patch.object(build_wasm, "source_fingerprint", return_value="new"), \
                 patch.object(build_wasm, "snapshot_optimizer", side_effect=snapshot,
-                             return_value=Path("/snapshot/wasm-opt")), \
+                             return_value=self.private_optimizer), \
                 patch.object(build_wasm, "create_manifest", return_value={"source_fingerprint": "new"}) as manifest:
             yield optimizer, manifest
 
@@ -144,7 +153,7 @@ class BuildPublicationTests(unittest.TestCase):
         self.assertEqual(json.loads(self.manifest.read_text()), {"source_fingerprint": "new"})
         self.assertEqual((self.root / "runtime/pkg/sourcefield_wasm_bg.wasm").read_bytes(),
                          build_wasm.WASM_HEADER + b"optimized")
-        self.assertEqual(self.calls[1][0], "/snapshot/wasm-opt")
+        self.assertEqual(self.calls[1][0], str(self.private_optimizer))
         self.assertTrue(optimizer.call_args.kwargs["offline"])
         manifest.assert_called_once()
         self.assertFalse((self.root / "build/.wasm-build.lock").exists())
@@ -164,7 +173,7 @@ class BuildPublicationTests(unittest.TestCase):
     def test_optimizer_failure_cannot_publish_bindings(self):
         # Arrange
         def producer(command, **kwargs):
-            if command[0] == "/snapshot/wasm-opt":
+            if command[0] == str(self.private_optimizer):
                 raise subprocess.CalledProcessError(2, command)
 
             self.producer(command, **kwargs)
@@ -181,14 +190,19 @@ class BuildPublicationTests(unittest.TestCase):
     def test_missing_optimizer_output_cannot_publish_stale_wasm(self):
         # Arrange
         def producer(command, **kwargs):
-            if command[0] == "/adapter":
+            if command[0] == str(self.bindings):
                 self.producer(command, **kwargs)
+            else:
+                self.assertEqual(command[0], str(self.private_optimizer))
+                self.calls.append(command)
 
         with self.dependencies(producer) as (_, manifest):
             # Act / Assert
             with self.assertRaisesRegex(ValueError, "build file must be regular"):
                 build_wasm.build(self.root)
 
+        self.assertEqual([command[0] for command in self.calls],
+                         [str(self.bindings), str(self.private_optimizer)])
         self.assertFalse(self.manifest.exists())
         manifest.assert_not_called()
 
@@ -219,7 +233,7 @@ class BuildPublicationTests(unittest.TestCase):
             if package == "sourcefield-wasm":
                 cache.write_bytes(b"replaced optimizer")
 
-            return Path("/input.wasm" if package == "sourcefield-wasm" else "/adapter")
+            return self.input_wasm if package == "sourcefield-wasm" else self.bindings
 
         with self.dependencies(snapshot=build_wasm.snapshot_optimizer) as (_, manifest), \
                 patch.object(build_wasm, "read_manifest", return_value=policy), \
@@ -230,9 +244,66 @@ class BuildPublicationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "size|SHA-256"):
                 build_wasm.build(self.root)
 
-        self.assertEqual([call[0] for call in self.calls], ["/adapter"])
+        self.assertEqual([call[0] for call in self.calls], [str(self.bindings)])
         self.assertFalse(self.manifest.exists())
         manifest.assert_not_called()
+
+    def windows_tool_paths(self):
+        """Exercise drive letters, spaces and exe suffixes while staging stays native."""
+        root = PureWindowsPath("C:/sourcefield build")
+        self.input_wasm = root / "input.wasm"
+        self.bindings = root / "adapter.exe"
+        self.cached_optimizer = root / "cache/wasm-opt.exe"
+        self.private_optimizer = root / "private/wasm-opt.exe"
+
+    def test_windows_executable_paths_publish_the_fresh_pair(self):
+        # Arrange
+        self.windows_tool_paths()
+        with self.dependencies() as (_, manifest):
+            # Act
+            build_wasm.build(self.root)
+
+        # Assert
+        self.assertEqual([command[0] for command in self.calls],
+                         [str(self.bindings), str(self.private_optimizer)])
+        self.assertEqual(self.calls[0][1], str(self.input_wasm))
+        self.assertEqual((self.root / "runtime/pkg/sourcefield_wasm_bg.wasm").read_bytes(),
+                         build_wasm.WASM_HEADER + b"optimized")
+        self.assertEqual(json.loads(self.manifest.read_text()), {"source_fingerprint": "new"})
+        manifest.assert_called_once()
+
+    def test_windows_optimizer_failure_preserves_the_old_module(self):
+        # Arrange
+        self.windows_tool_paths()
+
+        def producer(command, **kwargs):
+            if command[0] == str(self.private_optimizer):
+                raise subprocess.CalledProcessError(2, command)
+
+            self.producer(command, **kwargs)
+
+        with self.dependencies(producer):
+            # Act
+            with self.assertRaises(subprocess.CalledProcessError) as raised:
+                build_wasm.build(self.root)
+
+        # Assert
+        self.assertEqual(raised.exception.cmd[0], str(self.private_optimizer))
+        self.assertEqual(raised.exception.returncode, 2)
+        self.assertFalse(self.manifest.exists())
+        self.assertEqual((self.root / "runtime/pkg/sourcefield_wasm.js").read_text(), "old module")
+
+    def test_unknown_build_tool_is_rejected_without_optimizer_output(self):
+        # Arrange
+        output = self.root / "unexpected.wasm"
+        command = [str(self.root / "unknown.exe"), "-o", str(output)]
+
+        # Act
+        with self.assertRaisesRegex(AssertionError, "unexpected build tool"):
+            self.producer(command)
+
+        # Assert
+        self.assertFalse(output.exists())
 
     def test_missing_lock_does_not_start_tool_provisioning(self):
         # Arrange

@@ -21,6 +21,8 @@ records actual publication and its date. Unassigned future changes belong under 
 
 ### Fixed
 
+- Match native executable paths in WASM build process fixtures so Windows CI reaches the intended
+  binding and optimization checks without skipping coverage.
 - Bind browser and build-tool compilation to explicit WASM and native targets, preserving custom
   Cargo output directories. Publish runtime provenance only after fresh bindings and optimization
   succeed, and include all authored build inputs in native/browser source fingerprints and archives.
